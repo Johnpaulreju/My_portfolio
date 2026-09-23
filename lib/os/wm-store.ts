@@ -59,14 +59,28 @@ export const useWM = create<WMState>((set, get) => ({
   setBounds: (bounds) =>
     set((s) => ({
       bounds,
-      // Keep every window at least partially reachable after a viewport resize.
-      windows: s.windows.map((w) => ({
-        ...w,
-        pos: {
-          x: Math.min(w.pos.x, Math.max(0, bounds.w - 120)),
-          y: Math.min(w.pos.y, Math.max(0, bounds.h - 48)),
-        },
-      })),
+      windows: s.windows.map((w) => {
+        // A maximized or snapped window is defined by the viewport, so it has to be
+        // re-laid-out on resize - not just nudged, or it keeps a stale size while
+        // still claiming to be maximized.
+        if (w.maximized) return { ...w, pos: { x: 0, y: 0 }, size: { w: bounds.w, h: bounds.h } }
+        if (w.snapped) {
+          const half = Math.round(bounds.w / 2)
+          return {
+            ...w,
+            pos: { x: w.snapped === "left" ? 0 : half, y: 0 },
+            size: { w: half, h: bounds.h },
+          }
+        }
+        // Free-floating windows just stay at least partially reachable.
+        return {
+          ...w,
+          pos: {
+            x: Math.min(w.pos.x, Math.max(0, bounds.w - 120)),
+            y: Math.min(w.pos.y, Math.max(0, bounds.h - 48)),
+          },
+        }
+      }),
     })),
 
   setTheme: (theme) => set({ theme }),

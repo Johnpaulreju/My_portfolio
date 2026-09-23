@@ -70,7 +70,13 @@ export function DesktopShell({ onReboot }: { onReboot: () => void }) {
       <Wallpaper theme={theme} />
 
       {/* Icon + window layer, inset above the taskbar */}
-      <div className="absolute inset-x-0 top-0" style={{ bottom: TASKBAR_H }} onPointerDown={() => setStartOpen(false)}>
+      {/* isolation:isolate gives the window layer its own stacking context, so a
+          window's ever-increasing z can never climb above the taskbar or Start menu. */}
+      <div
+        className="absolute inset-x-0 top-0"
+        style={{ bottom: TASKBAR_H, isolation: "isolate" }}
+        onPointerDown={() => setStartOpen(false)}
+      >
         <DesktopIcons openMenu={openMenu} />
 
         {windows.map((win) => (
