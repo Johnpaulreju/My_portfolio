@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Power, Search } from "lucide-react"
-import { ALL_APPS } from "@/lib/os/app-meta"
+import { ALL_APPS, APP_META } from "@/lib/os/app-meta"
+import { search } from "@/lib/os/search"
+import { openApp, openNode } from "@/lib/os/actions"
+import { assistantInvoke } from "@/lib/os/capabilities"
+import type { AppId } from "@/lib/os/types"
 import { useWM } from "@/lib/os/wm-store"
 import { useFS } from "@/lib/os/fs-store"
 import { PROFILE } from "@/lib/os/content"
+import { usePower } from "@/lib/os/power-store"
 import { AppIcon } from "@/components/os/app-icon"
 import { TASKBAR_H } from "./taskbar"
 
-export function StartMenu({ onReboot }: { onReboot: () => void }) {
+export function StartMenu() {
   const { startOpen, setStartOpen, open } = useWM()
   const { nodes } = useFS()
   const [query, setQuery] = useState("")
@@ -43,13 +48,38 @@ export function StartMenu({ onReboot }: { onReboot: () => void }) {
   }, [startOpen, setStartOpen])
 
   const q = query.trim().toLowerCase()
-  const apps = useMemo(
-    () => (q ? ALL_APPS.filter((a) => a.title.toLowerCase().includes(q) || a.short.toLowerCase().includes(q)) : ALL_APPS),
-    [q],
-  )
+
+  // One ranked index, shared with Nimbus and the shell - this used to be a naive
+  // substring filter that could not see portfolio content at all.
+  // `nodes` stays in the deps because search() reads useFS.getState() directly,
+  // so the memo must still re-run when the filesystem changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `nodes` is NOT unused:
+  // search() reads useFS.getState() internally, so this memo must re-run whenever
+  // the filesystem changes. The linter cannot see that indirect read.
+  const hits = useMemo(() => (q ? search(query, "all", 24) : null), [q, query, nodes])
+
+  const apps = useMemo(() => {
+    if (!hits) return ALL_APPS
+    const ids = hits.results.filter((r) => r.kind === "app").map((r) => r.appId as AppId)
+    return ids.map((id) => APP_META[id]).filter(Boolean)
+  }, [hits])
+
   const files = useMemo(
-    () => (q ? nodes.filter((n) => n.name.toLowerCase().includes(q)).slice(0, 5) : []),
-    [q, nodes],
+    () =>
+      hits
+        ? hits.results
+            .filter((r) => r.kind === "file" || r.kind === "folder")
+            .slice(0, 5)
+            .map((r) => nodes.find((n) => n.id === r.nodeId))
+            .filter((n): n is NonNullable<typeof n> => Boolean(n))
+        : [],
+    [hits, nodes],
+  )
+
+  /** Portfolio and capability hits - things the old Start menu simply could not find. */
+  const extras = useMemo(
+    () => (hits ? hits.results.filter((r) => !["app", "file", "folder"].includes(r.kind)).slice(0, 4) : []),
+    [hits],
   )
   const recent = useMemo(
     () => [...nodes].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4),
@@ -112,6 +142,44 @@ export function StartMenu({ onReboot }: { onReboot: () => void }) {
         </div>
       )}
 
+      {q && extras.length > 0 && (
+        <>
+          <p className="mb-2 mt-5 text-[13px] font-semibold">From the portfolio</p>
+          <div className="flex flex-col">
+            {extras.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  if (r.kind === "action" && r.capability) {
+                    assistantInvoke(r.capability, r.capabilityArg ?? "")
+                  } else if (r.appId) {
+                    openApp(r.appId)
+                  } else if (r.nodeId) {
+                    openNode(r.nodeId)
+                  }
+                  setStartOpen(false)
+                }}
+                className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
+              >
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+                  style={{ background: "var(--os-accent-soft)", color: "var(--os-accent-fg)" }}
+                >
+                  {r.kind}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px]">{r.title}</span>
+                  <span className="block truncate text-[11px]" style={{ color: "var(--os-muted)" }}>
+                    {r.subtitle}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {q && files.length > 0 && (
         <>
           <p className="mb-2 mt-5 text-[13px] font-semibold">Files</p>
@@ -120,11 +188,7 @@ export function StartMenu({ onReboot }: { onReboot: () => void }) {
               <button
                 key={f.id}
                 type="button"
-                onClick={() =>
-                  f.kind === "folder"
-                    ? open("explorer", { folderId: f.id }, f.name)
-                    : open("notepad", { fileId: f.id }, `${f.name} — Notepad`)
-                }
+                onClick={() => openNode(f.id)}
                 className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
               >
                 <span className="text-[13px]">{f.kind === "folder" ? "📁" : "📄"}</span>
@@ -143,11 +207,7 @@ export function StartMenu({ onReboot }: { onReboot: () => void }) {
               <button
                 key={f.id}
                 type="button"
-                onClick={() =>
-                  f.kind === "folder"
-                    ? open("explorer", { folderId: f.id }, f.name)
-                    : open("notepad", { fileId: f.id }, `${f.name} — Notepad`)
-                }
+                onClick={() => openNode(f.id)}
                 className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
               >
                 <span>{f.kind === "folder" ? "📁" : "📄"}</span>
@@ -178,19 +238,60 @@ export function StartMenu({ onReboot }: { onReboot: () => void }) {
           <span className="text-[13px]">{PROFILE.name}</span>
         </button>
 
-        <button
-          type="button"
-          aria-label="Restart"
-          title="Restart"
-          onClick={() => {
-            setStartOpen(false)
-            onReboot()
-          }}
-          className="grid h-9 w-9 place-items-center rounded-md transition-colors hover:bg-[var(--os-hover)]"
-        >
-          <Power size={17} />
-        </button>
+        <PowerButton />
       </div>
+    </div>
+  )
+}
+
+/** Start ▸ power: Sleep, Shut down, Restart - the real Windows order. */
+function PowerButton() {
+  const [open, setOpen] = useState(false)
+  const { sleep, shutDown, restart } = usePower()
+  const setStartOpen = useWM((s) => s.setStartOpen)
+
+  const run = (fn: () => void) => () => {
+    setOpen(false)
+    setStartOpen(false)
+    fn()
+  }
+
+  return (
+    <div className="relative">
+      {open && (
+        <div
+          className="absolute bottom-full right-0 mb-2 min-w-[168px] rounded-lg p-1.5 shadow-2xl"
+          style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(28px)" }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {[
+            { label: "Sleep", fn: sleep },
+            { label: "Shut down", fn: shutDown },
+            { label: "Restart", fn: restart },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={run(o.fn)}
+              className="w-full rounded-md px-3 py-[7px] text-left text-[13px] transition-colors hover:bg-[var(--os-hover)]"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        aria-label="Power"
+        title="Power"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => setOpen((v) => !v)}
+        className="grid h-9 w-9 place-items-center rounded-md transition-colors hover:bg-[var(--os-hover)]"
+      >
+        <Power size={17} />
+      </button>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { Minus, Square, X, Copy } from "lucide-react"
 import { useWM, MIN_W, MIN_H } from "@/lib/os/wm-store"
 import type { Point, Size, WindowInstance } from "@/lib/os/types"
 import { AppIcon } from "@/components/os/app-icon"
+import { APP_META } from "@/lib/os/app-meta"
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
@@ -20,16 +21,26 @@ const HANDLES: { dir: Handle; className: string; cursor: string }[] = [
 ]
 
 const SNAP_EDGE = 12
+/** A press must travel this far before it counts as a drag rather than a click. */
+const DRAG_THRESHOLD = 4
 
 export function WindowFrame({ win, children }: { win: WindowInstance; children: ReactNode }) {
   const { focus, close, minimize, toggleMaximize, move, resize, snap, bounds, focusedId } = useWM()
   const active = focusedId === win.id
+  const isDialog = APP_META[win.appId].chrome === "dialog"
 
   // Geometry is tracked locally while a gesture is in flight so only this window
   // re-renders on pointermove; the store is updated once, on release.
   const [ghost, setGhost] = useState<{ pos: Point; size: Size } | null>(null)
   const [snapHint, setSnapHint] = useState<"left" | "right" | "max" | null>(null)
-  const gesture = useRef<{ kind: "move" | Handle; sx: number; sy: number; orig: { pos: Point; size: Size } } | null>(null)
+  const gesture = useRef<{
+    kind: "move" | Handle
+    sx: number
+    sy: number
+    orig: { pos: Point; size: Size }
+    /** False until the drag threshold is crossed - a click never becomes a move. */
+    active: boolean
+  } | null>(null)
 
   const pos = ghost?.pos ?? win.pos
   const size = ghost?.size ?? win.size
@@ -48,17 +59,16 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
     if (target.closest("[data-no-drag]")) return
 
     focus(win.id)
-    e.currentTarget.setPointerCapture(e.pointerId)
-
-    // Dragging a maximized window tears it loose, cursor-relative, like Windows does.
-    let orig = { pos: win.pos, size: win.size }
-    if (win.maximized || win.snapped) {
-      const r = win.restore ?? { pos: { x: 80, y: 80 }, size: { w: 900, h: 600 } }
-      const ratio = (e.clientX - win.pos.x) / Math.max(1, win.size.w)
-      orig = { pos: { x: e.clientX - r.size.w * ratio, y: Math.max(0, e.clientY - 16) }, size: r.size }
-      setGhost(orig)
+    // Pointer capture is deliberately NOT taken here. Capturing on pointerdown makes
+    // Chromium swallow the follow-up dblclick, which silently kills double-click-to-
+    // maximize. We capture only once the drag threshold is crossed.
+    gesture.current = {
+      kind: "move",
+      sx: e.clientX,
+      sy: e.clientY,
+      orig: { pos: win.pos, size: win.size },
+      active: false,
     }
-    gesture.current = { kind: "move", sx: e.clientX, sy: e.clientY, orig }
   }
 
   const onResizePointerDown = (dir: Handle) => (e: RPointerEvent<HTMLDivElement>) => {
@@ -66,7 +76,8 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
     e.stopPropagation()
     focus(win.id)
     e.currentTarget.setPointerCapture(e.pointerId)
-    gesture.current = { kind: dir, sx: e.clientX, sy: e.clientY, orig: { pos: win.pos, size: win.size } }
+    // Resize handles have no dblclick behaviour, so capturing immediately is safe.
+    gesture.current = { kind: dir, sx: e.clientX, sy: e.clientY, orig: { pos: win.pos, size: win.size }, active: true }
   }
 
   const onPointerMove = (e: RPointerEvent<HTMLDivElement>) => {
@@ -76,6 +87,17 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
     const dy = e.clientY - g.sy
 
     if (g.kind === "move") {
+      if (!g.active) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
+        g.active = true
+        e.currentTarget.setPointerCapture(e.pointerId)
+        // Dragging a maximized window tears it loose, cursor-relative, like Windows does.
+        if (win.maximized || win.snapped) {
+          const r = win.restore ?? { pos: { x: 80, y: 80 }, size: { w: 900, h: 600 } }
+          const ratio = (g.sx - win.pos.x) / Math.max(1, win.size.w)
+          g.orig = { pos: { x: g.sx - r.size.w * ratio, y: Math.max(0, g.sy - 16) }, size: r.size }
+        }
+      }
       const next = { x: g.orig.pos.x + dx, y: Math.max(0, g.orig.pos.y + dy) }
       setGhost({ pos: next, size: g.orig.size })
       if (e.clientY <= SNAP_EDGE) setSnapHint("max")
@@ -106,6 +128,12 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
   const onPointerUp = () => {
     const g = gesture.current
     if (!g) return
+    // A press that never crossed the threshold is a click, not a drag - commit nothing
+    // so the dblclick that may follow is free to maximize.
+    if (!g.active) {
+      endGesture()
+      return
+    }
     const hint = snapHint
     const final = ghost
     endGesture()
@@ -120,11 +148,9 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
     }
   }
 
-  if (win.minimized) return null
-
   return (
     <>
-      {snapHint && (
+      {snapHint && !win.minimized && (
         <div
           className="pointer-events-none fixed z-[60] rounded-lg border-2 border-white/60 bg-white/20 backdrop-blur-sm transition-all duration-150"
           style={
@@ -141,8 +167,11 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
       )}
 
       <div
-        className="absolute flex flex-col overflow-hidden rounded-lg will-change-transform"
+        className="absolute flex flex-col overflow-hidden rounded-lg"
+        aria-hidden={win.minimized || undefined}
         style={{
+          // Hidden, not unmounted: React keeps the app's state alive in the taskbar.
+          display: win.minimized ? "none" : "flex",
           left: pos.x,
           top: pos.y,
           width: size.w,
@@ -153,7 +182,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
           boxShadow: active
             ? "0 24px 60px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4)"
             : "0 10px 28px rgba(0,0,0,.35)",
-          transition: gesture.current ? "none" : "left .12s ease, top .12s ease, width .12s ease, height .12s ease",
+          transition: ghost ? "none" : "left .12s ease, top .12s ease, width .12s ease, height .12s ease",
         }}
         onPointerDown={() => focus(win.id)}
         role="dialog"
@@ -162,12 +191,12 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
         {/* Title bar */}
         <div
           className="flex h-9 shrink-0 select-none items-center gap-2 pl-3 pr-0"
-          style={{ background: "var(--os-chrome)", cursor: gesture.current?.kind === "move" ? "grabbing" : "default" }}
+          style={{ background: "var(--os-chrome)", cursor: ghost && gesture.current?.kind === "move" ? "grabbing" : "default" }}
           onPointerDown={onTitlePointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          onDoubleClick={() => toggleMaximize(win.id)}
+          onDoubleClick={() => !isDialog && toggleMaximize(win.id)}
         >
           <AppIcon appId={win.appId} size={16} />
           <span
@@ -178,12 +207,16 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
           </span>
 
           <div className="flex h-full items-stretch" data-no-drag>
-            <TitleButton label="Minimize" onClick={() => minimize(win.id)}>
-              <Minus size={14} />
-            </TitleButton>
-            <TitleButton label={win.maximized ? "Restore" : "Maximize"} onClick={() => toggleMaximize(win.id)}>
-              {win.maximized ? <Copy size={11} className="-scale-x-100" /> : <Square size={11} />}
-            </TitleButton>
+            {!isDialog && (
+              <TitleButton label="Minimize" onClick={() => minimize(win.id)}>
+                <Minus size={14} />
+              </TitleButton>
+            )}
+            {!isDialog && (
+              <TitleButton label={win.maximized ? "Restore" : "Maximize"} onClick={() => toggleMaximize(win.id)}>
+                {win.maximized ? <Copy size={11} className="-scale-x-100" /> : <Square size={11} />}
+              </TitleButton>
+            )}
             <TitleButton label="Close" danger onClick={() => close(win.id)}>
               <X size={15} />
             </TitleButton>
@@ -195,10 +228,13 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
           {children}
         </div>
 
-        {/* A drag in progress must not let the pointer fall into the app below. */}
-        {gesture.current && <div className="absolute inset-0 z-10" />}
+        {/* A drag in progress must not let the pointer fall into the app below.
+            Gated on `ghost`, not `gesture.current`: the latter is set on pointerdown,
+            so the shield would cover the title bar and eat the dblclick. */}
+        {ghost && <div className="absolute inset-0 z-10" />}
 
         {!win.maximized &&
+          !isDialog &&
           HANDLES.map((h) => (
             <div
               key={h.dir}

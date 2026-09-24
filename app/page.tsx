@@ -1,18 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { BootScreen } from "@/components/os/boot-screen"
+import { useEffect, useState } from "react"
+import { PowerOverlay } from "@/components/os/power/power-overlay"
 import { DesktopShell } from "@/components/os/desktop/desktop-shell"
 import { PhoneShell } from "@/components/os/mobile/phone-shell"
 import { useWM } from "@/lib/os/wm-store"
 import { useFS } from "@/lib/os/fs-store"
+import { usePower } from "@/lib/os/power-store"
 
 const PHONE_BREAKPOINT = 768
 
 export default function Home() {
-  const [booted, setBooted] = useState(false)
   const [isPhone, setIsPhone] = useState<boolean | null>(null)
   const theme = useWM((s) => s.theme)
+  const powerState = usePower((s) => s.state)
   const hydrate = useFS((s) => s.hydrate)
 
   // Restore any files the visitor created on a previous visit.
@@ -27,16 +28,12 @@ export default function Home() {
     return () => mq.removeEventListener("change", sync)
   }, [])
 
-  const reboot = useCallback(() => {
-    useWM.getState().closeAll()
-    setBooted(false)
-  }, [])
-
   return (
     <main data-theme={theme} className="h-[100dvh] w-full overflow-hidden">
-      {!booted && <BootScreen onDone={() => setBooted(true)} />}
-      {/* isPhone is null on the very first paint, before the media query is read. */}
-      {isPhone === null ? null : isPhone ? <PhoneShell /> : <DesktopShell onReboot={reboot} />}
+      {/* The shell stays MOUNTED beneath the overlay, so locking or sleeping never
+          loses an open window. */}
+      {isPhone === null ? null : isPhone ? <PhoneShell /> : <DesktopShell />}
+      <PowerOverlay />
     </main>
   )
 }

@@ -37,8 +37,17 @@ const STEPS = [
   "Starting services",
   "Loading projects",
   "Mounting experience",
+  "Almost there",
   "Preparing desktop",
 ]
+
+/**
+ * Timed to the boot chime (loadingSound.mp3 is ~4.95s) so the sound finishes
+ * rather than being cut off mid-note when the desktop appears.
+ */
+const STEP_MS = 760
+const FADE_AT = 4100
+const DONE_AT = 5000
 
 export function BootScreen({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0)
@@ -57,22 +66,25 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
 
     const timers: ReturnType<typeof setTimeout>[] = []
     STEPS.forEach((_, i) => {
-      timers.push(setTimeout(() => setStep(i), 480 * (i + 1)))
+      timers.push(setTimeout(() => setStep(i), STEP_MS * (i + 1)))
     })
-    timers.push(setTimeout(() => setLeaving(true), 2400))
-    timers.push(setTimeout(onDone, 2900))
+    timers.push(setTimeout(() => setLeaving(true), FADE_AT))
+    timers.push(setTimeout(onDone, DONE_AT))
     return () => timers.forEach(clearTimeout)
   }, [onDone])
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] grid place-items-center bg-[#1b64c4] transition-opacity duration-500 ${
-        leaving ? "opacity-0" : "opacity-100"
-      }`}
+      className="fixed inset-0 z-[9999] grid place-items-center bg-[#1b64c4]"
+      style={{
+        opacity: leaving ? 0 : 1,
+        transform: leaving ? "scale(1.04)" : "scale(1)",
+        transition: "opacity 880ms ease-in-out, transform 880ms ease-in-out",
+      }}
       role="status"
       aria-live="polite"
     >
-      <div className="flex flex-col items-center gap-14 px-6 text-center">
+      <div className="flex flex-col items-center gap-14 px-6 text-center" style={{ animation: "boot-in 700ms ease-out both" }}>
         <PaneMark size={104} />
 
         <div className="flex flex-col items-center gap-5">
@@ -87,6 +99,16 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
       <p className="absolute bottom-10 text-[13px] font-light tracking-wider text-white/55">
         {PROFILE.name}
       </p>
+
+      {/* Never hold anyone hostage to an animation. Visible from the first frame. */}
+      <button
+        type="button"
+        onClick={onDone}
+        className="absolute bottom-8 right-8 rounded-md px-3.5 py-1.5 text-[12.5px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        style={{ border: "1px solid rgba(255,255,255,.25)" }}
+      >
+        Skip &rarr;
+      </button>
     </div>
   )
 }

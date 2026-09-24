@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useFS } from "@/lib/os/fs-store"
+import { playSfx } from "@/lib/os/sfx"
+import { SaveGuard } from "@/components/os/dialogs/save-guard"
 import { useWM } from "@/lib/os/wm-store"
 import type { WindowInstance } from "@/lib/os/types"
 
 export function NotepadApp({ win }: { win: WindowInstance }) {
-  const { get, setBody, create, rename } = useFS()
+  const { get, setBody, create, rename, saveCopy } = useFS()
   const { setTitle, setPayload } = useWM()
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -18,6 +20,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
   const [wrap, setWrap] = useState(true)
   const [caret, setCaret] = useState({ ln: 1, col: 1 })
   const [menu, setMenu] = useState<"file" | "format" | null>(null)
+  const [guard, setGuard] = useState(false)
 
   // Adopt the file's text whenever this window is pointed at a different file.
   useEffect(() => {
@@ -27,7 +30,15 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
 
   const save = () => {
     if (fileId) {
-      setBody(fileId, draft)
+      const res = setBody(fileId, draft)
+      // Johnpaul's own files refuse the write - say so warmly instead of failing silently.
+      if (!res.ok) {
+        if (res.reason === "locked") {
+          playSfx("error")
+          setGuard(true)
+        }
+        return
+      }
     } else {
       // Untitled buffer: materialise a real file on first save.
       const id = create("text", null, "Untitled.txt")
@@ -75,7 +86,22 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
   }, [draft])
 
   return (
-    <div className="flex h-full min-h-0 flex-col" onPointerDown={() => setMenu(null)}>
+    <div className="relative flex h-full min-h-0 flex-col" onPointerDown={() => setMenu(null)}>
+      <SaveGuard
+        open={guard}
+        fileName={file?.name ?? "this file"}
+        onKeepEditing={() => setGuard(false)}
+        onSaveCopy={() => {
+          const res = saveCopy(fileId!, draft)
+          setGuard(false)
+          if (res.ok && res.id) {
+            setPayload(win.id, { fileId: res.id })
+            const copy = useFS.getState().get(res.id)
+            if (copy) setTitle(win.id, `${copy.name} — Notepad`)
+            setDirty(false)
+          }
+        }}
+      />
       {/* Menu bar */}
       <div
         className="relative flex shrink-0 items-center gap-0.5 border-b px-1.5 py-1 text-[12px]"

@@ -4,67 +4,74 @@ import { create } from "zustand"
 import type { FSNode, FSNodeKind } from "./types"
 import { PROFILE } from "./content"
 
-const STORAGE_KEY = "jp-os-fs-v1"
+const STORAGE_KEY = "jp-os-fs-v2"
 
 let seq = 0
 const nextId = () => `n${Date.now().toString(36)}${(++seq).toString(36)}`
 
+/** Writes refuse rather than fail silently, so callers can show the save dialog. */
+export type WriteResult = { ok: true; id?: string } | { ok: false; reason: "locked" | "missing" }
+
+const README = [
+  `${PROFILE.name} — ${PROFILE.title}`,
+  "",
+  PROFILE.tagline,
+  "",
+  "This desktop is a real one, not a picture of one:",
+  "  • Right-click the wallpaper to make a new folder or text file",
+  "  • Drag icons anywhere you like, then right-click → Refresh",
+  "  • Double-click any file to open it; press F2 to rename, Delete to bin it",
+  "  • Drag windows around, resize them from any edge, snap them to a screen half",
+  "  • Anything you create is saved in your browser and survives a reload",
+  "",
+  "You can type in my files too — I just won't let you save over them.",
+  "",
+  `Reach me: ${PROFILE.email} · ${PROFILE.phone}`,
+].join("\n")
+
+const IDEAS =
+  "Things I want to build next:\n\n" +
+  "- Sign-language recognizer (in progress)\n" +
+  "- Voice-modulation agents (in progress)\n" +
+  "- Something with WebGPU\n"
+
+/**
+ * Seeded nodes carry Johnpaul's own words, so they are `locked`: readable and
+ * freely typed into, but they refuse to be written back, renamed or deleted.
+ * `t` is a fixed epoch, never Date.now(), so the seed is stable across reloads.
+ */
+const SEED_EPOCH = 1_700_000_000_000
+
 const SEED: FSNode[] = [
-  {
-    id: "seed-readme",
-    name: "Readme.txt",
-    kind: "text",
-    parentId: null,
-    locked: false,
-    createdAt: Date.now(),
-    body: [
-      `${PROFILE.name} — ${PROFILE.title}`,
-      "",
-      PROFILE.tagline,
-      "",
-      "This desktop is a real one, not a picture of one:",
-      "  • Right-click the wallpaper to make a new folder or text file",
-      "  • Double-click any file to open it in Notepad",
-      "  • Press F2 (or right-click → Rename) to rename something",
-      "  • Drag windows around, resize them from any edge, snap them to a screen half",
-      "  • Anything you create is saved in your browser and survives a reload",
-      "",
-      `Reach me: ${PROFILE.email} · ${PROFILE.phone}`,
-    ].join("\n"),
-  },
-  {
-    id: "seed-notes",
-    name: "My Notes",
-    kind: "folder",
-    parentId: null,
-    locked: false,
-    createdAt: Date.now(),
-  },
-  {
-    id: "seed-ideas",
-    name: "ideas.txt",
-    kind: "text",
-    parentId: "seed-notes",
-    locked: false,
-    createdAt: Date.now(),
-    body: "Things I want to build next:\n\n- Sign-language recognizer (in progress)\n- Voice-modulation agents (in progress)\n- Something with WebGPU\n",
-  },
+  { id: "seed-readme", name: "Readme.txt", kind: "text", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, body: README },
+  { id: "seed-notes", name: "My Notes", kind: "folder", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH },
+  { id: "seed-ideas", name: "ideas.txt", kind: "text", parentId: "seed-notes", locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, body: IDEAS },
+  { id: "seed-intro", name: "Meet Johnpaul.mp4", kind: "video", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, src: "/media/intro.mp4" },
 ]
+
+const SEED_IDS = new Set(SEED.map((n) => n.id))
 
 type FSState = {
   nodes: FSNode[]
   hydrated: boolean
-  /** Node currently being renamed inline, if any. */
   renamingId: string | null
 
   hydrate: () => void
   children: (parentId: string | null) => FSNode[]
   get: (id: string) => FSNode | undefined
-  /** Returns the new node's id so callers can immediately start an inline rename. */
-  create: (kind: FSNodeKind, parentId: string | null, name?: string) => string
-  rename: (id: string, name: string) => void
-  remove: (id: string) => void
-  setBody: (id: string, body: string) => void
+  trash: () => FSNode[]
+
+  create: (kind: FSNodeKind, parentId: string | null, name?: string, extra?: Partial<FSNode>) => string
+  rename: (id: string, name: string) => WriteResult
+  remove: (id: string) => WriteResult
+  setBody: (id: string, body: string) => WriteResult
+  /** The escape hatch offered whenever a write is refused: fork to the visitor's own copy. */
+  saveCopy: (id: string, body?: string) => WriteResult
+
+  restore: (id: string) => void
+  purge: (id: string) => void
+  emptyTrash: () => void
+
   setRenaming: (id: string | null) => void
   reset: () => void
 }
@@ -77,9 +84,10 @@ function persist(nodes: FSNode[]) {
   }
 }
 
-/** "New folder", "New folder (2)", ... so a name is never duplicated in one directory. */
 function uniqueName(nodes: FSNode[], parentId: string | null, base: string): string {
-  const siblings = nodes.filter((n) => n.parentId === parentId).map((n) => n.name.toLowerCase())
+  const siblings = nodes
+    .filter((n) => n.parentId === parentId && !n.deletedAt)
+    .map((n) => n.name.toLowerCase())
   if (!siblings.includes(base.toLowerCase())) return base
 
   const dot = base.lastIndexOf(".")
@@ -89,7 +97,24 @@ function uniqueName(nodes: FSNode[], parentId: string | null, base: string): str
     const candidate = `${stem} (${i})${ext}`
     if (!siblings.includes(candidate.toLowerCase())) return candidate
   }
-  return `${stem} (${Date.now()})${ext}`
+  return `${stem} (${nodes.length})${ext}`
+}
+
+/**
+ * Never trust localStorage wholesale. Visitor-created nodes are kept as-is, but
+ * every seed is forced back to its current definition - otherwise a stale v1 copy
+ * would keep an unlocked Readme.txt around and the save guard would look broken.
+ */
+function reconcile(stored: unknown): FSNode[] {
+  if (!Array.isArray(stored)) return SEED
+  const visitorNodes = (stored as FSNode[])
+    .filter((n) => n && typeof n.id === "string" && !SEED_IDS.has(n.id))
+    .map((n) => ({
+      ...n,
+      modifiedAt: typeof n.modifiedAt === "number" ? n.modifiedAt : n.createdAt ?? SEED_EPOCH,
+      locked: false,
+    }))
+  return [...SEED, ...visitorNodes]
 }
 
 export const useFS = create<FSState>((set, get) => ({
@@ -99,27 +124,21 @@ export const useFS = create<FSState>((set, get) => ({
 
   hydrate: () => {
     if (get().hydrated) return
+    let next = SEED
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          set({ nodes: parsed as FSNode[], hydrated: true })
-          return
-        }
-      }
+      if (raw) next = reconcile(JSON.parse(raw))
     } catch {
-      // Corrupt or unreadable storage falls through to the seed tree.
+      // Corrupt storage falls through to the seed tree.
     }
-    set({ hydrated: true })
-    persist(get().nodes)
+    set({ nodes: next, hydrated: true })
+    persist(next)
   },
 
   children: (parentId) =>
     get()
-      .nodes.filter((n) => n.parentId === parentId)
+      .nodes.filter((n) => n.parentId === parentId && !n.deletedAt)
       .sort((a, b) => {
-        // Folders first, then alphabetical - same as Explorer.
         if (a.kind === "folder" && b.kind !== "folder") return -1
         if (b.kind === "folder" && a.kind !== "folder") return 1
         return a.name.localeCompare(b.name)
@@ -127,16 +146,21 @@ export const useFS = create<FSState>((set, get) => ({
 
   get: (id) => get().nodes.find((n) => n.id === id),
 
-  create: (kind, parentId, name) => {
-    const base = name ?? (kind === "folder" ? "New folder" : "New Text Document.txt")
-    const finalName = uniqueName(get().nodes, parentId, base)
+  trash: () => get().nodes.filter((n) => n.deletedAt),
+
+  create: (kind, parentId, name, extra) => {
+    const fallback =
+      kind === "folder" ? "New folder" : kind === "doc" ? "New Document.jpdoc" : "New Text Document.txt"
+    const now = Date.now()
     const node: FSNode = {
       id: nextId(),
-      name: finalName,
+      name: uniqueName(get().nodes, parentId, name ?? fallback),
       kind,
       parentId,
-      body: kind === "text" ? "" : undefined,
-      createdAt: Date.now(),
+      body: kind === "text" || kind === "doc" ? "" : undefined,
+      createdAt: now,
+      modifiedAt: now,
+      ...extra,
     }
     const nodes = [...get().nodes, node]
     set({ nodes })
@@ -146,20 +170,27 @@ export const useFS = create<FSState>((set, get) => ({
 
   rename: (id, name) => {
     const trimmed = name.trim()
-    if (!trimmed) return
     const node = get().get(id)
-    if (!node || node.locked) return
+    if (!node) return { ok: false, reason: "missing" }
+    if (node.locked) return { ok: false, reason: "locked" }
+    if (!trimmed) return { ok: true }
+    const others = get().nodes.filter((x) => x.id !== id)
     const nodes = get().nodes.map((n) =>
-      n.id === id ? { ...n, name: uniqueName(get().nodes.filter((x) => x.id !== id), n.parentId, trimmed) } : n,
+      n.id === id
+        ? { ...n, name: uniqueName(others, n.parentId, trimmed), modifiedAt: Date.now() }
+        : n,
     )
     set({ nodes })
     persist(nodes)
+    return { ok: true }
   },
 
   remove: (id) => {
     const node = get().get(id)
-    if (!node || node.locked) return
-    // Recursively collect descendants so deleting a folder removes its contents too.
+    if (!node) return { ok: false, reason: "missing" }
+    if (node.locked) return { ok: false, reason: "locked" }
+
+    // Soft delete, so the Recycle Bin gets it for free. Descendants go too.
     const doomed = new Set<string>([id])
     let grew = true
     while (grew) {
@@ -171,13 +202,52 @@ export const useFS = create<FSState>((set, get) => ({
         }
       }
     }
-    const nodes = get().nodes.filter((n) => !doomed.has(n.id))
+    const at = Date.now()
+    const nodes = get().nodes.map((n) => (doomed.has(n.id) ? { ...n, deletedAt: at } : n))
+    set({ nodes })
+    persist(nodes)
+    return { ok: true }
+  },
+
+  setBody: (id, body) => {
+    const node = get().get(id)
+    if (!node) return { ok: false, reason: "missing" }
+    if (node.locked) return { ok: false, reason: "locked" }
+    const nodes = get().nodes.map((n) =>
+      n.id === id ? { ...n, body, modifiedAt: Date.now() } : n,
+    )
+    set({ nodes })
+    persist(nodes)
+    return { ok: true }
+  },
+
+  saveCopy: (id, body) => {
+    const node = get().get(id)
+    if (!node) return { ok: false, reason: "missing" }
+    const dot = node.name.lastIndexOf(".")
+    const stem = dot > 0 ? node.name.slice(0, dot) : node.name
+    const ext = dot > 0 ? node.name.slice(dot) : ""
+    const newId = get().create(node.kind, node.parentId, `${stem} (my copy)${ext}`, {
+      body: body ?? node.body,
+      src: node.src,
+    })
+    return { ok: true, id: newId }
+  },
+
+  restore: (id) => {
+    const nodes = get().nodes.map((n) => (n.id === id ? { ...n, deletedAt: undefined } : n))
     set({ nodes })
     persist(nodes)
   },
 
-  setBody: (id, body) => {
-    const nodes = get().nodes.map((n) => (n.id === id ? { ...n, body } : n))
+  purge: (id) => {
+    const nodes = get().nodes.filter((n) => n.id !== id)
+    set({ nodes })
+    persist(nodes)
+  },
+
+  emptyTrash: () => {
+    const nodes = get().nodes.filter((n) => !n.deletedAt)
     set({ nodes })
     persist(nodes)
   },

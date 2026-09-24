@@ -8,10 +8,20 @@ export type AppId =
   | "contact"
   | "browser"
   | "notepad"
+  | "docs"
+  | "player"
   | "explorer"
   | "settings"
   | "terminal"
   | "resume"
+  | "welcome"
+  | "recyclebin"
+  | "computer"
+  | "minesweeper"
+  | "solitaire"
+  | "tube"
+  | "ridgeline"
+  | "vantage"
 
 export type Size = { w: number; h: number }
 export type Point = { x: number; y: number }
@@ -36,7 +46,7 @@ export type WindowInstance = {
   z: number
 }
 
-export type FSNodeKind = "folder" | "text" | "app-link"
+export type FSNodeKind = "folder" | "text" | "doc" | "video" | "zip" | "app-link"
 
 export type FSNode = {
   id: string
@@ -44,13 +54,24 @@ export type FSNode = {
   kind: FSNodeKind
   /** null = lives on the Desktop root. */
   parentId: string | null
-  /** Body text for `text` nodes. */
+  /** Body text for `text` nodes; sanitized HTML for `doc` nodes. */
   body?: string
-  /** Which app a `app-link` node launches. */
+  /** Media source path for `video` nodes, relative to /public. */
+  src?: string
+  /** Which app an `app-link` node launches. */
   appId?: AppId
-  /** Built-in nodes cannot be deleted or renamed. */
+  /**
+   * Carries Johnpaul's own words. Readable, openable and freely editable in the
+   * buffer - but refuses to be written back, renamed or deleted. Enforced at the
+   * save boundary only, never by disabling the editor.
+   */
   locked?: boolean
   createdAt: number
+  modifiedAt: number
+  /** Soft delete - set when the node is in the Recycle Bin. */
+  deletedAt?: number
+  /** For `zip` nodes: a deep snapshot of members, so deleting the original keeps the archive intact. */
+  zipOf?: FSNode[]
 }
 
 export type Theme = "dark" | "light"

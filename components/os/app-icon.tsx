@@ -1,15 +1,20 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 import {
-  Activity, Briefcase, Chrome, FileBadge, FileText, FlaskConical, Folder, FolderOpen,
-  Mail, Settings, SquareTerminal, Trophy, UserRound, type LucideIcon,
+  Activity, Bike, Bomb, Briefcase, Compass, Clapperboard, FileBadge, FileText, FileType, FlaskConical, Folder,
+  FolderOpen, Globe, HardDrive, Mail, MonitorPlay, PartyPopper, Settings, Spade, SquareTerminal,
+  Trash2, Trophy, UserRound, type LucideIcon,
 } from "lucide-react"
 import { APP_META } from "@/lib/os/app-meta"
 import type { AppId } from "@/lib/os/types"
+import { brandIcon, onBrandIconsChanged } from "@/lib/os/brand-icons"
 
 const ICONS: Record<string, LucideIcon> = {
-  Activity, Briefcase, Chrome, FileBadge, FileText, FlaskConical, Folder, FolderOpen,
-  Mail, Settings, SquareTerminal, Trophy, UserRound,
+  Activity, Bike, Bomb, Briefcase, Compass, Clapperboard, FileBadge, FileText, FileType, FlaskConical, Folder,
+  FolderOpen, Globe, HardDrive, Mail, MonitorPlay, PartyPopper, Settings, Spade, SquareTerminal,
+  Trash2, Trophy, UserRound,
 }
 
 /** The rounded gradient tile used on the desktop, taskbar, Start menu and phone home screen. */
@@ -25,6 +30,27 @@ export function AppIcon({
   const meta = APP_META[appId]
   const Icon = ICONS[meta.icon] ?? FileText
   const radius = Math.round(size * 0.235)
+
+  // An override at public/brand/<appId>.(svg|png|webp) wins over the built-in glyph.
+  const [override, setOverride] = useState<string | null>(null)
+  useEffect(() => {
+    const read = () => setOverride(brandIcon(appId)?.url ?? null)
+    read()
+    return onBrandIconsChanged(read)
+  }, [appId])
+
+  if (override) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- images.unoptimized is on; static asset
+      <img
+        src={override}
+        alt=""
+        aria-hidden
+        className={`inline-block shrink-0 object-contain ${className}`}
+        style={{ width: size, height: size, borderRadius: radius }}
+      />
+    )
+  }
 
   return (
     <span

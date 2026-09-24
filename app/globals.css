@@ -23,6 +23,11 @@
   --os-input: rgba(255, 255, 255, 0.06);
   --os-taskbar: rgba(32, 32, 32, 0.8);
   --os-drawer: rgba(24, 24, 24, 0.92);
+  /* Text/icons drawn ON an accent fill. White on #4cc2ff is only ~2:1 - unreadable. */
+  --os-on-accent: #000000;
+  --os-scrim: rgba(0, 0, 0, 0.3);
+  --os-accent-soft: rgba(76, 194, 255, 0.22);
+  --os-danger: #c42b1c;
 }
 
 [data-theme="light"] {
@@ -41,6 +46,16 @@
   --os-input: rgba(255, 255, 255, 0.72);
   --os-taskbar: rgba(243, 243, 243, 0.78);
   --os-drawer: rgba(250, 250, 250, 0.94);
+  --os-on-accent: #ffffff;
+  /* Intentionally the same in both themes - a scrim darkens whatever is behind it. */
+  --os-scrim: rgba(0, 0, 0, 0.3);
+  --os-accent-soft: rgba(0, 103, 192, 0.2);
+  --os-danger: #c42b1c;
+}
+
+:root {
+  --os-player-surface: #000000;
+  --os-player-buffer: rgba(255, 165, 0, 0.5);
 }
 
 * {
@@ -170,4 +185,38 @@ textarea {
     inset: 0;
     box-shadow: none !important;
   }
+}
+
+/* Right-click > Refresh repaints the icon layer, the way the real desktop does.
+   A hard cut out, then an ease back in - 150ms total. */
+.icon-layer-refreshing {
+  opacity: 0;
+  transition: none;
+}
+.icon-layer-settled {
+  opacity: 1;
+  transition: opacity 90ms ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(22px); }
+}
+
+@keyframes boot-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* The desktop eases in behind the boot screen as it fades out. */
+@keyframes shell-in {
+  from { opacity: 0; transform: scale(1.012); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.shell-entering {
+  animation: shell-in 700ms cubic-bezier(.22, 1, .36, 1) both;
 }

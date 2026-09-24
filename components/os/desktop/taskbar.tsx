@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, ChevronUp, Search, Volume2, Wifi, BatteryFull } from "lucide-react"
+import { Bell, BatteryFull, ChevronUp, Plane, Search, Volume1, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
 import { PINNED_APPS, APP_META } from "@/lib/os/app-meta"
 import { useWM } from "@/lib/os/wm-store"
+import { useSystem } from "@/lib/os/system-store"
+import { useNotify } from "@/lib/os/notify-store"
 import { AppIcon } from "@/components/os/app-icon"
 import type { AppId } from "@/lib/os/types"
 import type { MenuItem } from "./context-menu"
@@ -115,7 +117,9 @@ export function Taskbar({
 }
 
 function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]) => void }) {
-  const { theme, toggleTheme } = useWM()
+  const { qsOpen, setQsOpen, notifOpen, setNotifOpen } = useWM()
+  const sys = useSystem()
+  const unread = useNotify((s) => s.unread)
   const [now, setNow] = useState<Date | null>(null)
 
   // Rendered only after mount so server and client markup can't disagree on the time.
@@ -125,37 +129,73 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
     return () => clearInterval(t)
   }, [])
 
+  const netLabel = sys.airplane
+    ? "Airplane mode is on"
+    : !sys.wifiOn
+      ? "Not connected"
+      : sys.conn === "connecting"
+        ? "Connecting…"
+        : `${sys.ssid} — connected`
+
   return (
     <div className="flex items-center gap-0.5">
       <button
         type="button"
-        aria-label="Hidden icons"
+        aria-label="Show hidden icons"
+        title="Show hidden icons"
+        data-qs-trigger
+        onClick={() => setQsOpen(!qsOpen)}
         className="grid h-9 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"
       >
         <ChevronUp size={14} style={{ color: "var(--os-fg)" }} />
       </button>
 
+      {/* The network/volume/battery cluster opens Quick Settings - it no longer toggles the theme. */}
       <button
         type="button"
-        aria-label="Network, sound and battery"
-        onClick={toggleTheme}
-        title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        className="flex h-9 items-center gap-2 rounded-md px-2 hover:bg-[var(--os-hover)]"
+        aria-label={`Quick Settings — ${netLabel}`}
+        title={netLabel}
+        aria-haspopup="dialog"
+        aria-expanded={qsOpen}
+        data-qs-trigger
+        onClick={() => setQsOpen(!qsOpen)}
+        className={`flex h-9 items-center gap-2 rounded-md px-2 transition-colors ${
+          qsOpen ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
+        }`}
         style={{ color: "var(--os-fg)" }}
       >
-        <Wifi size={15} />
-        <Volume2 size={15} />
+        {sys.airplane ? (
+          <Plane size={15} />
+        ) : sys.conn === "connected" ? (
+          <Wifi size={15} />
+        ) : (
+          <span className="relative grid place-items-center">
+            <WifiOff size={15} />
+          </span>
+        )}
+        {sys.muted || sys.volume === 0 ? (
+          <VolumeX size={15} />
+        ) : sys.volume < 50 ? (
+          <Volume1 size={15} />
+        ) : (
+          <Volume2 size={15} />
+        )}
         <BatteryFull size={16} />
       </button>
 
       <button
         type="button"
+        onClick={() => setNotifOpen(!notifOpen)}
+        aria-haspopup="dialog"
+        aria-expanded={notifOpen}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
           openMenu(e.clientX, e.clientY, [{ label: "Adjust date and time", disabled: true }])
         }}
-        className="flex h-9 flex-col items-end justify-center rounded-md px-2 text-[11.5px] leading-tight hover:bg-[var(--os-hover)]"
+        className={`flex h-9 flex-col items-end justify-center rounded-md px-2 text-[11.5px] leading-tight ${
+          notifOpen ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
+        }`}
         style={{ color: "var(--os-fg)" }}
       >
         <span>{now ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}</span>
@@ -164,10 +204,19 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
 
       <button
         type="button"
-        aria-label="Notifications"
-        className="grid h-9 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"
+        aria-label={unread ? `Notifications, ${unread} new` : "Notifications"}
+        onClick={() => setNotifOpen(!notifOpen)}
+        className="relative grid h-9 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"
       >
         <Bell size={14} style={{ color: "var(--os-fg)" }} />
+        {unread > 0 && (
+          <span
+            className="absolute right-0.5 top-1 grid h-[14px] min-w-[14px] place-items-center rounded-full px-[3px] text-[9px] font-semibold"
+            style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
+          >
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
       </button>
     </div>
   )

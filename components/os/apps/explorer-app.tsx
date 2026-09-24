@@ -4,12 +4,26 @@ import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowUp, FilePlus2, FolderPlus, Monitor, Pencil, Trash2 } from "lucide-react"
 import { useFS } from "@/lib/os/fs-store"
 import { useWM } from "@/lib/os/wm-store"
+import { openNode as openNodeAction } from "@/lib/os/actions"
+import { useNotify } from "@/lib/os/notify-store"
+import type { WriteResult } from "@/lib/os/fs-store"
 import type { FSNode, WindowInstance } from "@/lib/os/types"
 import { FolderGlyph, TextGlyph } from "@/components/os/desktop/desktop-icons"
 
 export function ExplorerApp({ win }: { win: WindowInstance }) {
   const { get, children, create, rename, remove } = useFS()
   const { open, setTitle } = useWM()
+  const push = useNotify((s) => s.push)
+  const report = (res: WriteResult, verb: string, name: string) => {
+    if (res.ok || res.reason !== "locked") return
+    push({
+      appId: "explorer",
+      source: "File Explorer",
+      title: `Can't ${verb} ${name}`,
+      body: "This one's Johnpaul's own — open it and choose Save a copy instead.",
+      sound: "error",
+    })
+  }
 
   const [cwd, setCwd] = useState<string | null>((win.payload?.folderId as string) ?? null)
   const [history, setHistory] = useState<(string | null)[]>([])
@@ -46,8 +60,10 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
   }
 
   const openNode = (n: FSNode) => {
-    if (n.kind === "folder") navigate(n.id)
-    else open("notepad", { fileId: n.id }, `${n.name} — Notepad`)
+    // Folders navigate in place; everything else goes through the shared resolver
+    // so videos open in the player and docs in the editor.
+    if (n.kind === "folder" || n.kind === "zip") navigate(n.id)
+    else openNodeAction(n.id)
   }
 
   const newItem = (kind: "folder" | "text") => {
@@ -146,7 +162,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
                   <InlineRename
                     initial={n.name}
                     onDone={(v) => {
-                      if (v) rename(n.id, v)
+                      if (v) report(rename(n.id, v), "rename", n.name)
                       setRenaming(null)
                     }}
                   />
@@ -189,7 +205,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
             <>
               <MenuRow label="Open" onSelect={() => { openNode(menu.node!); setMenu(null) }} />
               <MenuRow icon={<Pencil size={13} />} label="Rename" onSelect={() => { setRenaming(menu.node!.id); setMenu(null) }} />
-              <MenuRow icon={<Trash2 size={13} />} danger label="Delete" onSelect={() => { remove(menu.node!.id); setMenu(null) }} />
+              <MenuRow icon={<Trash2 size={13} />} danger label="Delete" onSelect={() => { report(remove(menu.node!.id), "delete", menu.node!.name); setMenu(null) }} />
             </>
           ) : (
             <>

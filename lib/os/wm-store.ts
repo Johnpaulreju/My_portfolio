@@ -25,6 +25,9 @@ type WMState = {
   topZ: number
   theme: Theme
   startOpen: boolean
+  /** Tray flyouts. Mutually exclusive with each other and with startOpen. */
+  qsOpen: boolean
+  notifOpen: boolean
   /** Usable desktop area (viewport minus taskbar). */
   bounds: Size
 
@@ -32,6 +35,9 @@ type WMState = {
   setTheme: (t: Theme) => void
   toggleTheme: () => void
   setStartOpen: (v: boolean) => void
+  setQsOpen: (v: boolean) => void
+  setNotifOpen: (v: boolean) => void
+  closeFlyouts: () => void
 
   open: (appId: AppId, payload?: Record<string, unknown>, title?: string) => string
   close: (id: string) => void
@@ -54,6 +60,8 @@ export const useWM = create<WMState>((set, get) => ({
   topZ: 10,
   theme: "dark",
   startOpen: false,
+  qsOpen: false,
+  notifOpen: false,
   bounds: { w: 1280, h: 720 },
 
   setBounds: (bounds) =>
@@ -85,7 +93,11 @@ export const useWM = create<WMState>((set, get) => ({
 
   setTheme: (theme) => set({ theme }),
   toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
-  setStartOpen: (startOpen) => set({ startOpen }),
+  // Opening any one shell surface closes the others - two open at once is the classic bug here.
+  setStartOpen: (startOpen) => set({ startOpen, qsOpen: false, notifOpen: false }),
+  setQsOpen: (qsOpen) => set({ qsOpen, startOpen: false, notifOpen: false }),
+  setNotifOpen: (notifOpen) => set({ notifOpen, startOpen: false, qsOpen: false }),
+  closeFlyouts: () => set({ startOpen: false, qsOpen: false, notifOpen: false }),
 
   open: (appId, payload, title) => {
     const meta = APP_META[appId]
@@ -131,6 +143,8 @@ export const useWM = create<WMState>((set, get) => ({
       focusedId: id,
       topZ: s.topZ + 1,
       startOpen: false,
+      qsOpen: false,
+      notifOpen: false,
     }))
     return id
   },

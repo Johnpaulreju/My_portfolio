@@ -1,10 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ExternalLink, Pencil, Trash2 } from "lucide-react"
 import { DESKTOP_APPS } from "@/lib/os/app-meta"
 import { useFS } from "@/lib/os/fs-store"
 import { useWM } from "@/lib/os/wm-store"
+import { openApp, openNode } from "@/lib/os/actions"
+import { useNotify } from "@/lib/os/notify-store"
+import type { WriteResult } from "@/lib/os/fs-store"
 import { AppIcon } from "@/components/os/app-icon"
 import type { MenuItem } from "./context-menu"
 import type { AppId, FSNode } from "@/lib/os/types"
@@ -20,6 +23,19 @@ export function DesktopIcons({
 }) {
   const { nodes, children, create, rename, remove, renamingId, setRenaming } = useFS()
   const open = useWM((s) => s.open)
+  const push = useNotify((s) => s.push)
+
+  /** A locked node is Johnpaul's own - explain the refusal rather than no-op. */
+  const report = useCallback((res: WriteResult, verb: string, name: string) => {
+    if (res.ok || res.reason !== "locked") return
+    push({
+      appId: "notepad",
+      source: "File Explorer",
+      title: `Can't ${verb} ${name}`,
+      body: "This one's Johnpaul's own — open it and choose Save a copy instead.",
+      sound: "error",
+    })
+  }, [push])
   const [selected, setSelected] = useState<string | null>(null)
   const rootNodes = children(null)
 
@@ -28,13 +44,11 @@ export function DesktopIcons({
     ...rootNodes.map((n) => ({ key: `node:${n.id}`, kind: "node" as const, node: n, label: n.name })),
   ]
 
+  // Which app opens a node is decided once, in the action layer - previously this
+  // sent every non-folder to Notepad, so videos and documents opened as text.
   const openEntry = (e: Entry) => {
-    if (e.kind === "app") {
-      open(e.appId)
-      return
-    }
-    if (e.node.kind === "folder") open("explorer", { folderId: e.node.id }, e.node.name)
-    else open("notepad", { fileId: e.node.id }, `${e.node.name} — Notepad`)
+    if (e.kind === "app") openApp(e.appId)
+    else openNode(e.node.id)
   }
 
   // F2 renames and Delete removes the selected desktop item, as in Explorer.
@@ -50,19 +64,22 @@ export function DesktopIcons({
         setRenaming(id)
       } else if (ev.key === "Delete") {
         ev.preventDefault()
-        remove(id)
+        // `id` is already the bare node id here, so look the name up rather than
+        // re-slicing a prefix that is no longer present.
+        const name = nodes.find((n) => n.id === id)?.name ?? "that item"
+        report(remove(id), "delete", name)
         setSelected(null)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [selected, renamingId, remove, setRenaming])
+  }, [selected, renamingId, remove, setRenaming, report, nodes])
 
   const nodeMenu = (node: FSNode): MenuItem[] => [
     { label: "Open", icon: <ExternalLink size={14} />, onSelect: () => openEntry({ key: "", kind: "node", node, label: node.name }) },
     { kind: "sep" },
     { label: "Rename", icon: <Pencil size={14} />, shortcut: "F2", onSelect: () => setRenaming(node.id) },
-    { label: "Delete", icon: <Trash2 size={14} />, shortcut: "Del", danger: true, onSelect: () => remove(node.id) },
+    { label: "Delete", icon: <Trash2 size={14} />, shortcut: "Del", danger: true, onSelect: () => report(remove(node.id), "delete", node.name) },
   ]
 
   const appMenu = (appId: AppId): MenuItem[] => [
@@ -78,7 +95,7 @@ export function DesktopIcons({
     >
       <div
         className="grid h-full w-fit gap-x-1"
-        style={{ gridTemplateRows: "repeat(auto-fill, 96px)", gridAutoFlow: "column", gridAutoColumns: "92px" }}
+        style={{ gridTemplateRows: "repeat(auto-fill, 98px)", gridAutoFlow: "column", gridAutoColumns: "102px" }}
       >
         {entries.map((entry) => {
           const isSel = selected === entry.key
@@ -102,7 +119,7 @@ export function DesktopIcons({
                   entry.kind === "node" ? nodeMenu(entry.node) : appMenu(entry.appId),
                 )
               }}
-              className={`group flex h-[92px] w-[88px] flex-col items-center gap-1.5 rounded p-1.5 text-center transition-colors ${
+              className={`group flex h-[94px] w-[98px] flex-col items-center gap-1.5 rounded p-1.5 text-center transition-colors ${
                 isSel ? "bg-white/25 ring-1 ring-white/40" : "hover:bg-white/10"
               }`}
             >
@@ -118,14 +135,14 @@ export function DesktopIcons({
                 <RenameInput
                   initial={entry.kind === "node" ? entry.node.name : ""}
                   onCommit={(v) => {
-                    if (entry.kind === "node") rename(entry.node.id, v)
+                    if (entry.kind === "node") report(rename(entry.node.id, v), "rename", entry.node.name)
                     setRenaming(null)
                   }}
                   onCancel={() => setRenaming(null)}
                 />
               ) : (
                 <span
-                  className="line-clamp-2 w-full break-words px-0.5 text-[11.5px] leading-tight text-white"
+                  className="line-clamp-2 w-full px-0.5 text-[11.5px] leading-tight text-white [overflow-wrap:anywhere]"
                   style={{ textShadow: "0 1px 3px rgba(0,0,0,.85)" }}
                 >
                   {entry.label}
