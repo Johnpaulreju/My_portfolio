@@ -7,12 +7,12 @@ import {
   useState,
   type KeyboardEvent as RKeyboardEvent,
   type ReactNode,
+  type PointerEvent as RPointerEvent,
 } from "react"
 import {
   FileBadge,
   Gauge,
   Info,
-  Keyboard,
   Mail,
   Pause,
   Play,
@@ -25,7 +25,8 @@ import {
 import type { WindowInstance } from "@/lib/os/types"
 import { useWM } from "@/lib/os/wm-store"
 import { useSystem } from "@/lib/os/system-store"
-import { usePower } from "@/lib/os/power-store"
+import { useAppActive } from "@/lib/os/app-activity"
+import { createRaceInput } from "@/lib/os/games/ridgeline-input"
 import { useNotify } from "@/lib/os/notify-store"
 
 /**
@@ -1000,6 +1001,7 @@ type Result = {
 type EngineOpts = {
   onFinish: (r: Result) => void
   onStatus: (s: string) => void
+  onFeedback: (s: string) => void
 }
 
 const RIVAL_POOL: { name: string; body: string; trim: string; jacket: string }[] = [
@@ -1071,6 +1073,9 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
   let meleeHintShown = false
   let hintText = ""
   let hintT = 0
+  let checkpoint = 0
+  let combo = 0
+  let lastHit = -Infinity
 
   const held = new Set<string>()
   const speedLines = new Float32Array(22 * 4)
@@ -1085,12 +1090,12 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
    * ------------------------------------------------------------ */
 
   function layout() {
-    const cssW = Math.max(160, wrap.clientWidth)
-    const cssH = Math.max(120, wrap.clientHeight)
+    const cssW = Math.max(1, wrap.clientWidth)
+    const cssH = Math.max(1, wrap.clientHeight)
     const dpr = Math.min(dprCap, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1)
     // Logical height is fixed, so resizing the window reframes the shot — it
     // never changes how hard the race is.
-    const LW = Math.round(clamp((LOGICAL_H * cssW) / cssH, 640, 1000))
+    const LW = Math.round(clamp((LOGICAL_H * cssW) / cssH, 480, 1000))
     const s = Math.min(cssW / LW, cssH / LOGICAL_H)
     const ox = (cssW - LW * s) / 2
     const oy = (cssH - LOGICAL_H * s) / 2
@@ -1135,6 +1140,11 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
 
   function setMotion(reduced: boolean) {
     motion = reduced ? 0 : 1
+    if (reduced) {
+      trauma = flash = shakeX = shakeY = shakeR = 0
+      particles.clear()
+      if (!running) render()
+    }
   }
 
   /* ------------------------------------------------------------ *
@@ -1170,6 +1180,8 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     rivals = []
     rivalsSpawned = 0
     meleeHintShown = false
+    checkpoint = combo = 0
+    lastHit = -Infinity
     particles.clear()
     held.clear()
 
@@ -1182,7 +1194,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
       car.offset = car.offset0
       findSegment(car.z).cars.push(car)
     }
-    setHint("HOLD  W  /  ↑   TO  ACCELERATE", 4.5)
+    setHint("HOLD  GAS  OR  W / ↑  TO  ACCELERATE", 4.5)
   }
 
   function start() {
@@ -1204,6 +1216,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     } else {
       if (raf) cancelAnimationFrame(raf)
       raf = 0
+      releaseAll()
       audio.idle()
     }
   }
@@ -1252,6 +1265,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
 
   function releaseAll() {
     held.clear()
+    buffered = null
   }
 
   const up = () => held.has("w") || held.has("ArrowUp")
@@ -1288,6 +1302,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
   function setHint(text: string, seconds: number) {
     hintText = text
     hintT = seconds
+    opts.onFeedback(text)
   }
 
   function sparks(n: number, x: number, y: number, spread: number) {
@@ -1349,12 +1364,17 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     const hy = view.LH * 0.7
 
     if (blocked) {
+      combo = 0
+      setHint(`${target.name}  BLOCKED — WAIT FOR A GAP`, 1.8)
       hp = Math.max(0, hp - 4) // a good block reflects
       addTrauma(0.2)
       freeze = Math.max(freeze, 0.05)
       sparks(8, hx, hy, 16)
       audio.impact(0.5)
     } else {
+      combo = elapsed - lastHit <= 3 ? combo + 1 : 1
+      lastHit = elapsed
+      setHint(combo > 1 ? `${combo} CLEAN HITS — NICE TIMING` : `${target.name}  HIT`, 1.8)
       addTrauma(0.35)
       freeze = Math.max(freeze, 0.07)
       sparks(14, hx, hy, 18)
@@ -1392,6 +1412,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
   function hurtPlayer(dmg: number) {
     if (invuln > 0) return
     hp -= dmg
+    combo = 0
     flash = 0.6
     flashDanger = true
     if (hp <= 0) playerWipeout()
@@ -1621,8 +1642,8 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     // The corner pushes you out. This is the whole reason a corner is a corner.
     playerX -= dx * sp * playerSeg.curve * CENTRIFUGAL
 
-    if (up()) speed += ACCEL * dt
-    else if (down()) speed += BRAKING * dt
+    if (down()) speed += BRAKING * dt
+    else if (up()) speed += ACCEL * dt
     else speed += DECEL * dt
 
     const off = Math.abs(playerX) > 1
@@ -1680,7 +1701,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
       for (const r of rivals) {
         if (alongside(r)) {
           meleeHintShown = true
-          setHint("J  /  L   TO  STRIKE  LEFT  /  RIGHT", 4)
+          setHint("STRIKE  LEFT / RIGHT  OR  J / L", 4)
           break
         }
       }
@@ -1736,6 +1757,11 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
 
     particles.step(dt)
 
+    const nextCheckpoint = Math.min(3, Math.floor(traveled / (FINISH_DIST / 4)))
+    if (nextCheckpoint > checkpoint) {
+      checkpoint = nextCheckpoint
+      setHint(`CHECKPOINT ${checkpoint}/3 · ${fmtTime(elapsed)}${checkpoint === 3 ? " · KEEP IT COMPILED" : ""}`, 3)
+    }
     if (traveled >= FINISH_DIST) finish()
   }
 
@@ -1802,7 +1828,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     drawPlayer(LW, LH, sp)
     particles.draw(ctx, palette.dirt, palette.spark)
     if (sp > 0.55 && motion > 0) drawSpeedLines(LW, LH, sp)
-    if (flash > 0.01) {
+    if (motion > 0 && flash > 0.01) {
       ctx.fillStyle = flashDanger ? palette.danger : palette.accent
       ctx.globalAlpha = flash * 0.32
       ctx.fillRect(-40, -40, LW + 80, LH + 80)
@@ -2090,7 +2116,7 @@ function createEngine(canvas: HTMLCanvasElement, wrap: HTMLElement, opts: Engine
     else if (atkPhase === "strike") punch = 1
     else if (atkPhase === "recovery") punch = clamp(atkT / RECOVERY, 0, 1)
 
-    const flicker = invuln > 0 && Math.floor(invuln * 14) % 2 === 0
+    const flicker = motion > 0 && invuln > 0 && Math.floor(invuln * 14) % 2 === 0
     if (flicker) ctx.globalAlpha = 0.45
     drawRider(
       ctx,
@@ -2351,7 +2377,7 @@ type Screen = "title" | "racing" | "results"
 export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
   const theme = useWM((s) => s.theme)
   const openApp = useWM((s) => s.open)
-  const powerState = usePower((s) => s.state)
+  const appActive = useAppActive()
   const volume = useSystem((s) => s.volume)
   const sysMuted = useSystem((s) => s.muted)
   const push = useNotify((s) => s.push)
@@ -2363,15 +2389,29 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
 
   const [screen, setScreen] = useState<Screen>("title")
   const [manualPause, setManualPause] = useState(false)
-  const [pauseOnBlur, setPauseOnBlur] = useState(true)
   const [soundOn, setSoundOn] = useState(true)
   const [result, setResult] = useState<Result | null>(null)
   const [showHow, setShowHow] = useState(false)
+  const [feedback, setFeedback] = useState("Hold Gas to leave the start line.")
   const [status, setStatus] = useState("Ridgeline is waiting at the start line.")
   const [docHidden, setDocHidden] = useState(false)
   const [windowFocused, setWindowFocused] = useState(true)
-  const [coarseOnly, setCoarseOnly] = useState(false)
-  const [keyboardSeen, setKeyboardSeen] = useState(false)
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set())
+  const captures = useRef(new Map<number, HTMLButtonElement>())
+  const input = useRef<ReturnType<typeof createRaceInput> | null>(null)
+  if (!input.current) input.current = createRaceInput(
+    (key) => engRef.current?.keyDown(key),
+    (key) => engRef.current?.keyUp(key),
+  )
+  const releaseInputs = useCallback(() => {
+    input.current?.clear()
+    engRef.current?.releaseAll()
+    for (const [id, button] of captures.current) {
+      if (button.hasPointerCapture(id)) button.releasePointerCapture(id)
+    }
+    captures.current.clear()
+    setPressedKeys(new Set())
+  }, [])
 
   const finishRef = useRef<(r: Result) => void>(() => {})
   const statusRef = useRef<(s: string) => void>(() => {})
@@ -2403,6 +2443,7 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
     const eng = createEngine(canvas, wrap, {
       onFinish: (r) => finishRef.current(r),
       onStatus: (s) => statusRef.current(s),
+      onFeedback: setFeedback,
     })
     engRef.current = eng
     if (!eng) return
@@ -2441,13 +2482,6 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
     return () => mq.removeEventListener?.("change", apply)
   }, [])
 
-  /* --- pointer capability ---------------------------------------- */
-  useEffect(() => {
-    const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false
-    const hover = window.matchMedia?.("(any-hover: hover)")?.matches ?? true
-    setCoarseOnly(coarse && !hover)
-  }, [])
-
   /* --- audio ----------------------------------------------------- */
   useEffect(() => {
     engRef.current?.audio.setVolume(volume, sysMuted)
@@ -2460,7 +2494,10 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
   /* --- page visibility and window focus --------------------------- */
   useEffect(() => {
     const onVis = () => setDocHidden(document.visibilityState === "hidden")
-    const onBlur = () => setWindowFocused(false)
+    const onBlur = () => {
+      releaseInputs()
+      setWindowFocused(false)
+    }
     const onFocus = () => setWindowFocused(true)
     onVis()
     document.addEventListener("visibilitychange", onVis)
@@ -2471,7 +2508,7 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
       window.removeEventListener("blur", onBlur)
       window.removeEventListener("focus", onFocus)
     }
-  }, [])
+  }, [releaseInputs])
 
   /**
    * Every reason the simulation must stop. Running a game loop in a hidden tab
@@ -2479,16 +2516,17 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
    */
   const autoPaused =
     docHidden ||
-    powerState !== "running" ||
+    !appActive ||
     !!win?.minimized ||
-    (pauseOnBlur && !windowFocused) ||
+    !windowFocused ||
     showHow
   const paused = manualPause || autoPaused
   const shouldRun = screen === "racing" && !paused
 
   useEffect(() => {
+    if (!shouldRun) releaseInputs()
     engRef.current?.setRunning(shouldRun)
-  }, [shouldRun])
+  }, [shouldRun, releaseInputs])
 
   useEffect(() => {
     if (screen === "racing" && !paused) rootRef.current?.focus()
@@ -2496,15 +2534,14 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
 
   const startRace = useCallback(() => {
     const eng = engRef.current
-    if (!eng) return
+    if (!eng || !appActive || docHidden || !windowFocused || showHow) return
+    releaseInputs()
     setResult(null)
     setManualPause(false)
-    // Choosing to race past the keyboard notice counts as having one.
-    setKeyboardSeen(true)
     setScreen("racing")
     eng.start()
     rootRef.current?.focus()
-  }, [])
+  }, [appActive, docHidden, windowFocused, showHow, releaseInputs])
 
   /* --- keyboard --------------------------------------------------- */
   const onKeyDown = useCallback(
@@ -2512,7 +2549,7 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
       const t = e.target as HTMLElement | null
       const tag = t?.tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || t?.isContentEditable) return
-      if (!keyboardSeen) setKeyboardSeen(true)
+      if (!appActive) return
       if (e.ctrlKey || e.metaKey || e.altKey) return
 
       if (e.key === "p" || e.key === "P") {
@@ -2527,16 +2564,26 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
       }
       if (screen !== "racing" || paused) return
       // preventDefault only for keys the game actually consumes.
-      if (engRef.current?.keyDown(e.key)) e.preventDefault()
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+      if (["w", "a", "s", "d", "k", "j", "l", " ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+        input.current?.press(`keyboard:${key}`, key, e.repeat)
+        e.preventDefault()
+      }
     },
-    [screen, paused, startRace, keyboardSeen],
+    [screen, paused, startRace, appActive],
   )
 
   const onKeyUp = useCallback((e: RKeyboardEvent<HTMLDivElement>) => {
-    if (engRef.current?.keyUp(e.key)) e.preventDefault()
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+    input.current?.release(`keyboard:${key}`)
   }, [])
 
-  const needsKeyboard = coarseOnly && !keyboardSeen
+  const releasePointer = (e: RPointerEvent<HTMLButtonElement>) => {
+    input.current?.release(`pointer:${e.pointerId}`)
+    captures.current.delete(e.pointerId)
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    setPressedKeys(input.current?.keys() ?? new Set())
+  }
 
   return (
     <div
@@ -2544,18 +2591,52 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
-      onBlur={() => engRef.current?.releaseAll()}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) releaseInputs()
+      }}
+      onClickCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
       aria-label="Ridgeline game surface. W or up arrow to accelerate, A and D to steer, S or space to brake, J and L to strike, P to pause."
-      className="os-no-select flex h-full min-h-0 flex-col outline-none"
-      style={{ background: "var(--os-surface)" }}
+      className="os-no-select h-full min-h-0 outline-none"
+      style={{ background: "var(--os-surface)", containerType: "size", containerName: "ridgeline" }}
     >
+      <style>{`
+        @container ridgeline (min-width: 460px) {
+          .ridgeline-controls { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        }
+        @container ridgeline (max-width: 459px) {
+          .ridgeline-brand { display: none; }
+          .ridgeline-toolbar { flex-wrap: nowrap; padding: 4px; gap: 4px; }
+          .ridgeline-toolbar button:nth-last-child(-n+2) { width: 44px; justify-content: center; padding: 0; }
+          .ridgeline-toolbar button:nth-last-child(-n+2) span { display: none; }
+        }
+        @container ridgeline (max-height: 360px) {
+          .ridgeline-toolbar { flex-wrap: nowrap; padding: 2px 4px; gap: 4px; }
+          .ridgeline-brand { display: none; }
+          .ridgeline-toolbar button { flex-shrink: 0; }
+          .ridgeline-toolbar button:nth-last-child(-n+2) { width: 44px; justify-content: center; padding: 0; }
+          .ridgeline-toolbar button:nth-last-child(-n+2) span { display: none; }
+          .ridgeline-inputs { padding: 4px; }
+          .ridgeline-controls { gap: 4px; }
+          .ridgeline-controls button { min-height: 44px; min-width: 44px; }
+          .ridgeline-inputs p { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        }
+        @container ridgeline (max-height: 360px) and (min-width: 460px) {
+          .ridgeline-layout { display: grid; grid-template-columns: minmax(0, 1fr) 208px; grid-template-rows: 49px minmax(0, 1fr); }
+          .ridgeline-toolbar { grid-column: 1 / -1; }
+          .ridgeline-track { grid-column: 1; }
+          .ridgeline-inputs { grid-column: 2; border-top: 0; border-left: 1px solid var(--os-border); }
+          .ridgeline-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }
+          .ridgeline-controls button { min-height: 56px; }
+        }
+      `}</style>
+      <div className="ridgeline-layout flex h-full min-h-0 flex-col overflow-hidden">
       {/* Chrome */}
       <div
-        className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2"
+        className="ridgeline-toolbar flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2"
         style={{ borderColor: "var(--os-border)", background: "var(--os-card)" }}
       >
         <span
-          className="mr-1 flex items-center gap-1.5 text-[12.5px] font-semibold tracking-wide"
+          className="ridgeline-brand mr-1 flex items-center gap-1.5 text-[12.5px] font-semibold tracking-wide"
           style={{ color: "var(--os-fg)" }}
         >
           <Gauge size={14} style={{ color: "var(--os-accent)" }} />
@@ -2569,38 +2650,24 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
             if (screen !== "racing") startRace()
             else setManualPause((v) => !v)
           }}
-          disabled={screen !== "racing" && needsKeyboard}
+          disabled={!appActive || showHow}
         />
-        <ToolButton icon={<RotateCcw size={13} />} label="Restart" onClick={startRace} disabled={needsKeyboard} />
+        <ToolButton icon={<RotateCcw size={13} />} label="Restart" onClick={startRace} disabled={!appActive || showHow} />
         <ToolButton
           icon={soundOn ? <Volume2 size={13} /> : <VolumeX size={13} />}
           label={soundOn ? "Sound on" : "Muted"}
           onClick={() => setSoundOn((v) => !v)}
         />
         <ToolButton icon={<Info size={13} />} label="How it works" onClick={() => setShowHow(true)} />
-
-        <label
-          className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11.5px]"
-          style={{ color: "var(--os-muted)" }}
-        >
-          <input
-            type="checkbox"
-            checked={pauseOnBlur}
-            onChange={(e) => setPauseOnBlur(e.target.checked)}
-            className="h-3.5 w-3.5 accent-[var(--os-accent)]"
-          />
-          Pause when unfocused
-        </label>
       </div>
 
       {/* Track */}
-      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-hidden">
+      <div ref={wrapRef} className="ridgeline-track relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <canvas
           ref={canvasRef}
           role="img"
           aria-label="Ridgeline — a behind-the-bike combat race down a mountain road"
           className="absolute inset-0 block"
-          style={{ touchAction: "none" }}
         />
 
         <p className="sr-only" aria-live="polite" aria-atomic="true">
@@ -2609,7 +2676,7 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
 
         {screen === "title" && (
           <Overlay>
-            <TitleCard needsKeyboard={needsKeyboard} onStart={startRace} onHow={() => setShowHow(true)} />
+            <TitleCard onStart={startRace} onHow={() => setShowHow(true)} />
           </Overlay>
         )}
 
@@ -2622,7 +2689,7 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
               <p className="mt-1.5 text-[12.5px]" style={{ color: "var(--os-muted)" }}>
                 {autoPaused
                   ? "The bike stops when this window is not in front. Nothing runs in the background."
-                  : "Press P or click Resume to get going again."}
+                  : "Press P or tap Resume to get going again."}
               </p>
               {!autoPaused && (
                 <div className="mt-4 flex justify-center gap-2">
@@ -2650,6 +2717,59 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
 
         {showHow && <HowItWorks onClose={() => setShowHow(false)} />}
       </div>
+      {screen === "racing" && (
+        <div className="ridgeline-inputs shrink-0 border-t p-2" style={{ borderColor: "var(--os-border)", background: "var(--os-card)" }}>
+          <div className="ridgeline-controls grid grid-cols-3 gap-1.5" role="group" aria-label="Touch race controls">
+            {[
+              ["a", "← Left"], ["w", "Gas ↑"], ["d", "Right →"],
+              ["j", "Strike ←"], ["s", "Brake ↓"], ["l", "Strike →"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                disabled={!shouldRun}
+                aria-label={label}
+                aria-pressed={pressedKeys.has(key)}
+                onPointerDown={(e) => {
+                  if (!shouldRun || (e.pointerType === "mouse" && e.button !== 0)) return
+                  e.preventDefault()
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  captures.current.set(e.pointerId, e.currentTarget)
+                  input.current?.press(`pointer:${e.pointerId}`, key)
+                  setPressedKeys(input.current?.keys() ?? new Set())
+                }}
+                onPointerUp={releasePointer}
+                onPointerCancel={releasePointer}
+                onLostPointerCapture={releasePointer}
+                onContextMenu={(e) => e.preventDefault()}
+                onKeyDown={(e) => {
+                  if (shouldRun && (e.key === " " || e.key === "Enter")) {
+                    e.preventDefault()
+                    input.current?.press(`button:${key}`, key, e.repeat)
+                    setPressedKeys(input.current?.keys() ?? new Set())
+                  }
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault()
+                    input.current?.release(`button:${key}`)
+                    setPressedKeys(input.current?.keys() ?? new Set())
+                  }
+                }}
+                onBlur={() => {
+                  input.current?.release(`button:${key}`)
+                  setPressedKeys(input.current?.keys() ?? new Set())
+                }}
+                className="min-h-[56px] min-w-[56px] rounded-lg border px-1 text-[12px] font-semibold disabled:opacity-40"
+                style={{ touchAction: "none", borderColor: "var(--os-border)", background: pressedKeys.has(key) ? "var(--os-accent)" : "var(--os-hover)", color: pressedKeys.has(key) ? "var(--os-on-accent)" : "var(--os-fg)" }}
+              >{label}</button>
+            ))}
+          </div>
+          <p className="mt-1 text-center text-[11px]" aria-live="polite" style={{ color: "var(--os-accent)" }}>{feedback}</p>
+          <p className="mt-1 text-center text-[11px]" style={{ color: "var(--os-muted)" }}>Hold Gas + a direction together. Brake overrides Gas. Tap a strike when a rival is beside you.</p>
+        </div>
+      )}
+      </div>
     </div>
   )
 }
@@ -2661,11 +2781,11 @@ export function RidgelineApp({ win }: { win?: WindowInstance } = {}) {
 function Overlay({ children }: { children: ReactNode }) {
   return (
     <div
-      className="absolute inset-0 grid place-items-center px-6"
+      className="os-scroll absolute inset-0 overflow-auto p-3"
       style={{ background: "var(--os-scrim)", backdropFilter: "blur(4px)" }}
     >
       <div
-        className="w-full max-w-[460px] rounded-xl p-6 shadow-2xl"
+        className="mx-auto w-full max-w-[460px] rounded-xl p-4 shadow-2xl"
         style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)" }}
       >
         {children}
@@ -2689,7 +2809,7 @@ function GameButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-md px-4 py-[7px] text-[12.5px] font-medium transition-all active:scale-[.98]"
+      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-4 py-[7px] text-[12.5px] font-medium transition-all active:scale-[.98]"
       style={{
         background: primary ? "var(--os-accent)" : "var(--os-card)",
         color: primary ? "var(--os-on-accent)" : "var(--os-fg)",
@@ -2718,7 +2838,9 @@ function ToolButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-[6px] text-[12px] transition-colors enabled:hover:bg-[var(--os-hover)] disabled:opacity-40"
+      aria-label={label}
+      title={label}
+      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-2.5 py-[6px] text-[12px] transition-colors enabled:hover:bg-[var(--os-hover)] disabled:opacity-40"
       style={{ color: "var(--os-fg)", border: "1px solid var(--os-border)", background: "var(--os-card)" }}
     >
       {icon}
@@ -2739,11 +2861,9 @@ function Key({ children }: { children: ReactNode }) {
 }
 
 function TitleCard({
-  needsKeyboard,
   onStart,
   onHow,
 }: {
-  needsKeyboard: boolean
   onStart: () => void
   onHow: () => void
 }) {
@@ -2756,46 +2876,28 @@ function TitleCard({
         Ridgeline
       </h2>
       <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-        One descent, about seventy seconds, three rivals who hit back. Pseudo-3D road, fixed 60&nbsp;Hz simulation,
-        procedural riders, synthesised engine &mdash; no images, no audio files, no game engine.
+        One mountain descent. Three rivals who hit back. Reach the checkpoints, find gaps in traffic, and beat your best time.
       </p>
 
-      {needsKeyboard ? (
-        <div
-          className="mt-4 rounded-lg p-3.5"
-          style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
-        >
-          <p className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: "var(--os-fg)" }}>
-            <Keyboard size={14} style={{ color: "var(--os-accent)" }} />
-            Keyboard required
-          </p>
-          <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-            Ridgeline steers, brakes and throws punches on eight keys. Rather than ship a touch scheme that plays
-            badly, this build asks for a keyboard. Open it on a laptop and it is ready to go.
-          </p>
-          <div className="mt-3">
-            <GameButton onClick={onStart}>I have a keyboard &mdash; start anyway</GameButton>
-          </div>
-        </div>
-      ) : (
-        <div
-          className="mt-4 grid gap-2 rounded-lg p-3.5 text-[12px]"
-          style={{ background: "var(--os-card)", border: "1px solid var(--os-border)", color: "var(--os-muted)" }}
-        >
-          <ControlRow keys={["W", "↑"]} what="Throttle" />
-          <ControlRow keys={["A", "D", "←", "→"]} what="Steer" />
-          <ControlRow keys={["S", "K", "Space"]} what="Brake" />
-          <ControlRow keys={["J", "L"]} what="Strike left / right" />
-          <ControlRow keys={["P"]} what="Pause" />
-        </div>
-      )}
+      <div
+        className="mt-4 grid gap-2 rounded-lg p-3.5 text-[12px]"
+        style={{ background: "var(--os-card)", border: "1px solid var(--os-border)", color: "var(--os-muted)" }}
+      >
+        <ControlRow keys={["W", "↑"]} what="Throttle" />
+        <ControlRow keys={["A", "D", "←", "→"]} what="Steer" />
+        <ControlRow keys={["S", "K", "Space"]} what="Brake" />
+        <ControlRow keys={["J", "L"]} what="Strike left / right" />
+        <ControlRow keys={["P"]} what="Pause" />
+      </div>
+      <p className="mt-3 text-[12px]" style={{ color: "var(--os-muted)" }}>
+        On a phone, hold Gas and steer with another finger. Brake works even while holding Gas.
+        Tap left or right Strike beside a rival. Pause and Restart are always above the track.
+      </p>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {!needsKeyboard && (
-          <GameButton onClick={onStart} primary icon={<Play size={13} />}>
-            Drop in
-          </GameButton>
-        )}
+        <GameButton onClick={onStart} primary icon={<Play size={13} />}>
+          Drop in
+        </GameButton>
         <GameButton onClick={onHow} icon={<Info size={13} />}>
           How it works
         </GameButton>
@@ -2807,7 +2909,7 @@ function TitleCard({
 function ControlRow({ keys, what }: { keys: string[]; what: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="flex w-[142px] shrink-0 flex-wrap gap-1">
+      <span className="flex w-[118px] shrink-0 flex-wrap gap-1">
         {keys.map((k) => (
           <Key key={k}>{k}</Key>
         ))}
@@ -2911,7 +3013,7 @@ function HowItWorks({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="ml-auto grid h-7 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"
+          className="ml-auto grid h-11 w-11 place-items-center rounded-md hover:bg-[var(--os-hover)]"
           style={{ color: "var(--os-fg)" }}
         >
           <X size={14} />
@@ -2998,8 +3100,7 @@ function HowItWorks({ onClose }: { onClose: () => void }) {
           </p>
           <p>
             The loop stops on window blur, on tab hide, when the OS is not running and when the window is minimised,
-            and the pause-on-blur behaviour is a toggle rather than a rule, because coming back to a crashed bike is
-            worse than the alternative. Shake, particles and flashes are all transformed inside the canvas clip, so
+            and the race pauses when its app is inactive, so your bike waits for you. Shake, particles and flashes are all transformed inside the canvas clip, so
             no amount of juice can escape and paint over the taskbar.
           </p>
 

@@ -17,7 +17,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import * as A from "@/lib/os/actions"
 import { ask, SUGGESTED_QUESTIONS, type AssistantAction } from "@/lib/os/assistant"
 import { assistantInvoke } from "@/lib/os/capabilities"
-import { ACHIEVEMENTS, LAB, PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
+import { ACHIEVEMENTS, LAB, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_LAB, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
+import { SITE_URL } from "@/lib/site"
 import { useFS } from "@/lib/os/fs-store"
 import { useWM } from "@/lib/os/wm-store"
 import { HOME_SSID, useSystem, type NetStatus } from "@/lib/os/system-store"
@@ -395,11 +396,11 @@ const CMDS: Cmd[] = [
 
   /* -------------------------------------------------------- portfolio -- */
   { name: "about", usage: "about", desc: "who Johnpaul is", category: "portfolio" },
-  { name: "projects", usage: "projects [--all] [category]", desc: "shipped work", category: "portfolio" },
-  { name: "skills", usage: "skills [area]", desc: "proficiency bars by area", category: "portfolio" },
+  { name: "projects", usage: "projects [--all] [category]", desc: SHOW_PROJECTS ? "published work" : PORTFOLIO_STATUS.projects.title, category: "portfolio" },
+  { name: "skills", usage: "skills [area]", desc: "building and studying, by area", category: "portfolio" },
   { name: "experience", usage: "experience", desc: "work and education timeline", category: "portfolio" },
-  { name: "awards", usage: "awards", desc: "certifications and wins", category: "portfolio" },
-  { name: "lab", usage: "lab", desc: "what is in progress right now", category: "portfolio" },
+  { name: "awards", usage: "awards", desc: "certifications and milestones", category: "portfolio" },
+  { name: "lab", usage: "lab", desc: SHOW_LAB ? "what is in progress right now" : PORTFOLIO_STATUS.lab.title, category: "portfolio" },
   { name: "contact", usage: "contact", desc: "email, phone, the usual", category: "portfolio" },
   { name: "social", usage: "social", desc: "github and linkedin", category: "portfolio" },
   { name: "resume", usage: "resume", desc: "open the resume window", category: "portfolio" },
@@ -619,7 +620,13 @@ const TUTORIAL_KEY = "jp-os-jpsh-tutorial"
 let tutorialShown = false
 
 /** The five commands that show what this shell is, in the order they make sense. */
-const TUTORIAL_CMDS = ["ls", "tree", "jpfetch", 'ask "what projects use AI?"', "open resume"]
+const TUTORIAL_CMDS = [
+  "ls",
+  "tree",
+  "jpfetch",
+  SHOW_PROJECTS ? 'ask "what projects use AI?"' : `ask "what's his tech stack?"`,
+  "open resume",
+]
 
 /**
  * Shown once, ever. A terminal is a wall for most visitors, so the way in is a
@@ -641,7 +648,8 @@ function printTutorial(out: Out) {
 const BANNER = (): Line[] => [
   { t: "text", s: "", tone: "out" },
   { t: "text", s: `  jpsh 1.0.0  ·  ${PROFILE.name}`, tone: "accent" },
-  { t: "text", s: `  ${PROFILE.title} — ${PROFILE.tagline}`, tone: "dim" },
+  { t: "text", s: `  ${PROFILE.headline}`, tone: "out" },
+  { t: "text", s: `  ${PROFILE.tagline}`, tone: "dim" },
   { t: "text", s: "", tone: "out" },
   { t: "text", s: "  This shell is wired to the real desktop filesystem.", tone: "out" },
   {
@@ -1426,7 +1434,7 @@ export function TerminalApp() {
             const q = positional.slice(1).join(" ").trim()
             if (!q) {
               out.err("browser: missing query")
-              out.dim('usage: browser search "ai projects"')
+              out.dim('usage: browser search "python"')
               break
             }
             const res = A.openApp("browser", { q })
@@ -1526,7 +1534,7 @@ export function TerminalApp() {
         }
 
         case "ping": {
-          const host = joined || "johnpaul.dev"
+          const host = joined || new URL(SITE_URL).host
           const st = useSystem.getState()
           // status() is the only network truth in the app: it folds the radio, the
           // association and the browser's offline veto into one answer.
@@ -1551,6 +1559,7 @@ export function TerminalApp() {
         /* --------------------------------------------------- system */
         case "whoami":
           out.say("visitor")
+          out.dim(`(the owner is ${PROFILE.name}, ${PROFILE.headline}. Try: about)`)
           break
 
         case "id":
@@ -1675,7 +1684,7 @@ export function TerminalApp() {
             ["", "─────────────────"],
             ["OS", "Portfolio OS 11 (web build)"],
             ["Host", "Johnpaul's desktop, running in your browser"],
-            ["Kernel", "react 18 · next 14 · typescript"],
+            ["Kernel", "react 19 · next 15 · typescript"],
             ["Shell", "jpsh 1.0.0"],
             ["Uptime", uptimeText()],
             ["Theme", `${wm.theme} · ${wm.bounds.w}×${wm.bounds.h}`],
@@ -1683,8 +1692,9 @@ export function TerminalApp() {
             ["Files", `${all.length} nodes in the VFS`],
             ["Owner", PROFILE.name],
             ["Role", PROFILE.title],
+            ["Next", PROFILE.next],
             ["Where", PROFILE.location],
-            ["Projects", `${PROJECTS.length} shipped`],
+            ...(SHOW_PROJECTS ? [["Projects", `${PROJECTS.length} published`] as [string, string]] : []),
             ["Contact", PROFILE.email],
           ]
           const rows = Math.max(NEOFETCH_ART.length, info.length)
@@ -1764,15 +1774,16 @@ export function TerminalApp() {
             ["", "─────────────────"],
             ["Owner", PROFILE.name],
             ["Role", PROFILE.title],
+            ["Next", PROFILE.next],
             ["OS", "Portfolio OS 11 (web build)"],
             ["Shell", "jpsh 1.0.0"],
             ["Theme", snap.theme],
             ["Network", status === "online" ? `online · ${snap.ssid ?? "—"}` : status],
             ["Apps", `${snap.apps} installed`],
-            ["Projects", `${PROJECTS.length} shipped`],
+            ...(SHOW_PROJECTS ? [["Projects", `${PROJECTS.length} published`] as [string, string]] : []),
             ["Skills", `${SKILL_GROUPS.reduce((a, g) => a + g.items.length, 0)} tracked in ${SKILL_GROUPS.length} areas`],
             ["Timeline", `${TIMELINE.length} entries · ${ACHIEVEMENTS.length} awards`],
-            ["In the lab", `${LAB.length} in progress`],
+            ...(SHOW_LAB ? [["In the lab", `${LAB.length} in progress`] as [string, string]] : []),
             ["Windows", `${snap.windows} open`],
             ["Files", `${snap.nodes} nodes`],
             ["Where", PROFILE.location],
@@ -1806,7 +1817,7 @@ export function TerminalApp() {
             const offers = askRef.current
             if (!offers.length) {
               out.err("ask: nothing to run yet — ask a question first")
-              out.dim('  e.g. ask "what projects use AI?"')
+              out.dim(SHOW_PROJECTS ? '  e.g. ask "what projects use AI?"' : `  e.g. ask "what's his tech stack?"`)
               break
             }
             const n = parseInt(args[doIdx + 1] ?? "", 10)
@@ -1877,11 +1888,14 @@ export function TerminalApp() {
         case "about": {
           out.say("")
           out.ok(`  ${PROFILE.name}`)
-          out.say(`  ${PROFILE.title}`)
+          out.say(`  ${PROFILE.headline}`)
           out.dim(`  ${PROFILE.tagline}`)
           out.say("")
+          out.split("  Work", PROFILE.role)
           out.split("  Location", PROFILE.location)
           out.split("  Email", PROFILE.email)
+          out.split("  Availability", PROFILE.availability)
+          out.split("  Learning", PROFILE.learning)
           out.say("")
           out.info("  why me")
           PROFILE.uvp.forEach((u) => out.say(`    • ${u}`))
@@ -1890,6 +1904,13 @@ export function TerminalApp() {
         }
 
         case "projects": {
+          if (!SHOW_PROJECTS || PROJECTS.length === 0) {
+            out.say("")
+            out.ok(`  ${PORTFOLIO_STATUS.projects.title}`)
+            out.dim(`  ${PORTFOLIO_STATUS.projects.body}`)
+            out.say("")
+            break
+          }
           const all = flags.has("--all") || flags.has("-a")
           const cat = positional.join(" ").toLowerCase()
           let list = PROJECTS
@@ -1925,10 +1946,9 @@ export function TerminalApp() {
             out.ok(`  ${g.label}`)
             out.dim(`  ${g.hint}`)
             for (const s of g.items) {
-              const filled = Math.round(s.level / 5)
               out.split(
                 `    ${s.name.padEnd(18)}`,
-                `${"█".repeat(filled)}${"░".repeat(20 - filled)} ${s.level}%`,
+                s.status,
                 "info",
               )
             }
@@ -1939,9 +1959,12 @@ export function TerminalApp() {
 
         case "experience": {
           out.say("")
+          out.split("  Current role", PROFILE.role)
+          out.dim(`  ${PROFILE.learning}`)
+          out.say("")
           for (const e of TIMELINE) {
             out.ok(`  ${e.year}  ${e.label} — ${e.org}`)
-            out.dim(`        ${e.kind === "work" ? "work" : "education"}`)
+            out.dim(`        ${e.kind === "work" ? "employment history" : "education"}`)
             e.facts.forEach((f) => out.say(`        • ${f}`))
             out.say("")
           }
@@ -1956,6 +1979,13 @@ export function TerminalApp() {
         }
 
         case "lab": {
+          if (!SHOW_LAB || LAB.length === 0) {
+            out.say("")
+            out.ok(`  ${PORTFOLIO_STATUS.lab.title}`)
+            out.dim(`  ${PORTFOLIO_STATUS.lab.body}`)
+            out.say("")
+            break
+          }
           out.say("")
           out.dim("  in progress, no promises")
           out.say("")
@@ -1979,6 +2009,7 @@ export function TerminalApp() {
           out.split("  GitHub  ", PROFILE.github, "info")
           out.split("  LinkedIn", PROFILE.linkedin, "info")
           out.split("  Location", PROFILE.location, "dim")
+          out.split("  Availability", PROFILE.availability, "accent")
           out.say("")
           out.dim("  run `open contact` for the compose window")
           break
@@ -1995,8 +2026,9 @@ export function TerminalApp() {
             out.err(`resume: ${res.message}`)
             break
           }
-          out.ok("opening Resume.pdf…")
+          out.ok("opening résumé view…")
           out.dim(`${PROFILE.name} · ${PROFILE.title} · ${PROFILE.location}`)
+          out.dim("Use Print / Save as PDF in the résumé view.")
           break
         }
 

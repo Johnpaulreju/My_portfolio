@@ -10,6 +10,7 @@ import { useNotify } from "@/lib/os/notify-store"
 import { useWM } from "@/lib/os/wm-store"
 import { Slider } from "@/components/os/ui/slider"
 import { TASKBAR_H } from "./taskbar"
+import { useFlyoutFocus } from "./use-flyout-focus"
 
 type Page = "root" | "wifi" | "a11y"
 
@@ -24,6 +25,7 @@ export function QuickSettings() {
   const setDnd = useNotify((s) => s.setDnd)
   const [page, setPage] = useState<Page>("root")
   const ref = useRef<HTMLDivElement>(null)
+  useFlyoutFocus(qsOpen, ref)
 
   useEffect(() => {
     if (qsOpen) setPage("root")
@@ -60,6 +62,7 @@ export function QuickSettings() {
   return (
     <div
       ref={ref}
+      tabIndex={-1}
       role="dialog"
       aria-label="Quick Settings"
       className="absolute right-3 z-[150] w-[360px] rounded-xl p-2 shadow-2xl"
@@ -69,11 +72,12 @@ export function QuickSettings() {
         border: "1px solid var(--os-border)",
         backdropFilter: "blur(40px) saturate(170%)",
         color: "var(--os-fg)",
-        animation: "start-rise .16s ease-out",
+        animation: "drawer-up .16s ease-out",
       }}
     >
       {page === "root" && (
         <>
+          <p className="px-3 pt-2 text-[11px]" style={{ color: "var(--os-muted)" }}>Demo controls: network, Bluetooth, airplane mode and battery. These do not control your device.</p>
           <div className="grid grid-cols-3 gap-2 p-2">
             <SplitTile
               icon={sys.wifiOn && !sys.airplane ? <Wifi size={19} /> : <WifiOff size={19} />}
@@ -92,7 +96,7 @@ export function QuickSettings() {
               on={sys.nightLight}
               onClick={() => sys.setNightLight(!sys.nightLight)}
             />
-            <Tile icon={<Moon size={19} />} label="Do not disturb" on={dnd} onClick={() => setDnd(!dnd)} />
+            <Tile icon={<Moon size={19} />} label="Quiet notifications" on={dnd} onClick={() => setDnd(!dnd)} />
             <SplitTile
               icon={<Accessibility size={19} />}
               label="Accessibility"
@@ -119,14 +123,14 @@ export function QuickSettings() {
 
           <div className="space-y-3 px-4 py-3">
             <Slider
-              label="Brightness"
+              label="Page brightness"
               icon={<Sun size={17} />}
               min={20}
               value={sys.brightness}
               onChange={sys.setBrightness}
             />
             <Slider
-              label="Volume"
+              label="Portfolio sounds"
               icon={
                 <button type="button" aria-label={sys.muted ? "Unmute" : "Mute"} onClick={sys.toggleMute}>
                   {sys.muted || sys.volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}

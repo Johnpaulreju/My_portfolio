@@ -1,12 +1,29 @@
 "use client"
 
 import type { Theme } from "@/lib/os/types"
+import { useWallpaper } from "@/lib/os/wallpaper-store"
+
+/** Keeps desktop icon labels readable in the corners, whatever is behind them. */
+const VIGNETTE = "radial-gradient(105% 100% at 50% 42%, transparent 48%, rgba(0,0,0,.5) 100%)"
+
+/** The visitor's own picture when they've picked one in Settings, otherwise the bloom. */
+export function Wallpaper({ theme }: { theme: Theme }) {
+  const src = useWallpaper((s) => s.custom.find((w) => w.id === s.current)?.src)
+  if (!src) return <Bloom theme={theme} />
+  return (
+    <div className="absolute inset-0 overflow-hidden" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a data: URL from localStorage */}
+      <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+      <div className="absolute inset-0" style={{ background: VIGNETTE }} />
+    </div>
+  )
+}
 
 /**
  * Original abstract bloom - layered translucent ribbons around a soft core,
  * in the spirit of Windows 11 without using its artwork. Pure SVG, no request.
  */
-export function Wallpaper({ theme }: { theme: Theme }) {
+function Bloom({ theme }: { theme: Theme }) {
   const dark = theme === "dark"
 
   // Three offset rings of wide, leaning ribbons. They overlap heavily, so the
@@ -74,11 +91,7 @@ export function Wallpaper({ theme }: { theme: Theme }) {
         <circle cx="0" cy="0" r="9" fill={dark ? "#e2efff" : "#ffffff"} opacity={dark ? 0.32 : 0.5} filter="url(#wp-soft)" />
       </svg>
 
-      {/* Vignette keeps desktop icon labels readable in the corners. */}
-      <div
-        className="absolute inset-0"
-        style={{ background: "radial-gradient(105% 100% at 50% 42%, transparent 48%, rgba(0,0,0,.5) 100%)" }}
-      />
+      <div className="absolute inset-0" style={{ background: VIGNETTE }} />
     </div>
   )
 }

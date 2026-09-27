@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect, useRef } from "react"
+import { useAppActive } from "@/lib/os/app-activity"
+
 import dynamic from "next/dynamic"
 import type { AppId, WindowInstance } from "@/lib/os/types"
 import { APP_META } from "@/lib/os/app-meta"
@@ -25,6 +28,8 @@ import { WelcomeApp } from "./apps/welcome-app"
  */
 const loading = () => <AppLoading />
 
+const CameraApp = dynamic(() => import("./apps/camera-app").then((m) => m.CameraApp), { ssr: false, loading })
+const ClockApp = dynamic(() => import("./apps/clock-app").then((m) => m.ClockApp), { ssr: false, loading })
 const BrowserApp = dynamic(() => import("./apps/browser-app").then((m) => m.BrowserApp), { ssr: false, loading })
 const ComputerApp = dynamic(() => import("./apps/computer-app").then((m) => m.ComputerApp), { ssr: false, loading })
 const DocsApp = dynamic(() => import("./apps/docs-app").then((m) => m.DocsApp), { ssr: false, loading })
@@ -53,12 +58,24 @@ function AppLoading() {
  * payload (which file to open) and update their own title.
  */
 export function AppHost({ appId, win }: { appId: AppId; win: WindowInstance }) {
+  const active = useAppActive()
+  const surface = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!active) surface.current?.querySelectorAll<HTMLMediaElement>("video,audio").forEach((media) => media.pause())
+  }, [active])
+
   // Keyed by window id so "Try again" genuinely remounts this app, and so one
   // window's crash never bleeds into another instance of the same app.
   return (
-    <AppErrorBoundary key={win.id} appTitle={APP_META[appId]?.title ?? "This app"}>
-      {renderApp(appId, win)}
-    </AppErrorBoundary>
+    <div ref={surface} className="h-full min-h-0" onPlayCapture={(event) => {
+      // An asynchronously loaded media element can start after the session was
+      // covered. Pause it as well, preserving its playback position.
+      if (!active && event.target instanceof HTMLMediaElement) event.target.pause()
+    }}>
+      <AppErrorBoundary key={win.id} appTitle={APP_META[appId]?.title ?? "This app"}>
+        {renderApp(appId, win)}
+      </AppErrorBoundary>
+    </div>
   )
 }
 
@@ -87,6 +104,8 @@ function renderApp(appId: AppId, win: WindowInstance) {
     case "docs": return <DocsApp win={win} />
     case "ridgeline": return <RidgelineApp win={win} />
     case "vantage": return <VantageApp win={win} />
+    case "clock": return <ClockApp win={win} />
+    case "camera": return <CameraApp />
     default: return null
   }
 }

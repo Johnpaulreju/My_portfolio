@@ -29,7 +29,7 @@
  */
 
 import { ALL_APPS } from "./app-meta"
-import { ACHIEVEMENTS, LAB, PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE } from "./content"
+import { ACHIEVEMENTS, LAB, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_LAB, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "./content"
 import { useFS } from "./fs-store"
 import type { CapabilityName } from "./capabilities"
 import type { AppId, FSNode, FSNodeKind } from "./types"
@@ -192,11 +192,11 @@ function makeDoc(d: DocInput): Doc {
  */
 const APP_HINTS: Record<AppId, { blurb: string; alias: string }> = {
   about: { blurb: "Profile, background and the short version.", alias: "profile bio who summary intro" },
-  projects: { blurb: "The project archive.", alias: "work portfolio builds repos apps made" },
+  projects: { blurb: SHOW_PROJECTS ? "The project archive." : PORTFOLIO_STATUS.projects.body, alias: "work portfolio builds repos apps made" },
   experience: { blurb: "Roles and study, year by year.", alias: "career history job work education timeline" },
-  skills: { blurb: "Stacks, tools and proficiency.", alias: "tech technology stack tools languages frameworks" },
+  skills: { blurb: "Tools for building, plus ongoing study.", alias: "tech technology stack tools languages frameworks" },
   achievements: { blurb: "Awards and certifications.", alias: "awards certs certificates trophy recognition" },
-  lab: { blurb: "Experiments still in progress.", alias: "experiments wip research prototype next" },
+  lab: { blurb: SHOW_LAB ? "Experiments still in progress." : PORTFOLIO_STATUS.lab.body, alias: "experiments wip research prototype next" },
   contact: { blurb: "Write a message.", alias: "mail email hire reach inbox compose message" },
   browser: { blurb: "Nimbus — search this portfolio on the web.", alias: "browser web internet tabs omnibox nimbus surf" },
   notepad: { blurb: "Plain-text editor.", alias: "text editor txt write note scratch" },
@@ -205,15 +205,17 @@ const APP_HINTS: Record<AppId, { blurb: string; alias: string }> = {
   explorer: { blurb: "Browse files and folders.", alias: "files folders directory disk browse manager" },
   settings: { blurb: "Theme, sound, network and system.", alias: "preferences options control panel configure wallpaper" },
   terminal: { blurb: "A real shell over this machine.", alias: "console command line cmd shell prompt cli" },
-  resume: { blurb: "The one-page résumé.", alias: "cv curriculum vitae pdf hire download" },
+  resume: { blurb: "Résumé view with Print / Save as PDF.", alias: "cv curriculum vitae pdf hire download" },
   welcome: { blurb: "Start here.", alias: "intro tour getting started first run guide" },
   recyclebin: { blurb: "Deleted files, still restorable.", alias: "trash bin deleted restore undelete empty" },
   computer: { blurb: "Drives, specs and system information.", alias: "this pc my computer storage hardware properties" },
   minesweeper: { blurb: "The classic grid of hidden mines.", alias: "game puzzle mines flags board" },
   solitaire: { blurb: "Klondike, draw one or draw three.", alias: "game cards patience klondike deck" },
-  tube: { blurb: "A video site that hosts one channel.", alias: "video watch channel reel streaming" },
+  tube: { blurb: "A video space with no published videos yet.", alias: "video watch channel reel streaming" },
   ridgeline: { blurb: "An original pseudo-3D combat racer.", alias: "game racing bike arcade drive race" },
   vantage: { blurb: "The second browser, the one with split view.", alias: "browser web split view tabs reading compare" },
+  clock: { blurb: "Alarms, a timer, a stopwatch and world time.", alias: "alarm timer stopwatch time world wake countdown lap" },
+  camera: { blurb: "Take photos. They stay on your device.", alias: "photo selfie picture webcam snap filter shoot" },
 }
 
 function appDocs(): Doc[] {
@@ -222,7 +224,7 @@ function appDocs(): Doc[] {
       id: `app:${a.id}`,
       kind: "app",
       bucket: "apps",
-      title: a.title,
+      title: a.id === "resume" ? "Résumé" : a.title,
       subtitle: "App",
       detail: APP_HINTS[a.id].blurb,
       appId: a.id,
@@ -247,10 +249,10 @@ function contentDocs(): Doc[] {
       bucket: "jp",
       title: `${PROFILE.name} — ${PROFILE.title}`,
       subtitle: "Profile",
-      detail: PROFILE.tagline,
+      detail: `${PROFILE.next}. ${PROFILE.tagline}`,
       appId: "about",
       boost: 6,
-      body: `${PROFILE.location} ${PROFILE.uvp.join(" ")} ${PROFILE.initials} about bio who profile developer engineer johnpaul jp`,
+      body: `${PROFILE.headline} ${PROFILE.role} ${PROFILE.availability} ${PROFILE.learning} ${PROFILE.location} ${PROFILE.uvp.join(" ")} ${PROFILE.initials} about bio who profile developer software engineer genai generative ai johnpaul jp`,
     }),
     makeDoc({
       id: "profile:contact",
@@ -258,10 +260,10 @@ function contentDocs(): Doc[] {
       bucket: "jp",
       title: `Contact ${PROFILE.name}`,
       subtitle: "Profile",
-      detail: `${PROFILE.email} · ${PROFILE.phone} · ${PROFILE.location}`,
+      detail: PROFILE.availability,
       appId: "contact",
       boost: 4,
-      body: `${PROFILE.github} ${PROFILE.linkedin} contact hire email reach available availability message write`,
+      body: `${PROFILE.email} ${PROFILE.phone} ${PROFILE.location} ${PROFILE.github} ${PROFILE.linkedin} ${PROFILE.role} contact hire email reach available availability message write`,
     }),
     makeDoc({
       id: "profile:resume",
@@ -269,12 +271,53 @@ function contentDocs(): Doc[] {
       bucket: "jp",
       title: `Résumé — ${PROFILE.name}`,
       subtitle: "Profile",
-      detail: `One page: ${PROFILE.title}. ${PROFILE.uvp[2]}`,
+      detail: `${PROFILE.headline}. Print / Save as PDF.`,
       appId: "resume",
       boost: 3,
-      body: "resume cv curriculum vitae download hire pdf print",
+      body: "resume cv curriculum vitae hire pdf print",
     }),
   )
+
+  out.push(
+    makeDoc({
+      id: "profile:freelance",
+      kind: "profile",
+      bucket: "jp",
+      title: PROFILE.role,
+      subtitle: "Current work",
+      detail: PROFILE.availability,
+      appId: "about",
+      boost: 4,
+      body: "freelance hire available availability work developer contact",
+    }),
+    makeDoc({
+      id: "profile:learning",
+      kind: "profile",
+      bucket: "jp",
+      title: "Ongoing study",
+      subtitle: "Learning",
+      detail: PROFILE.learning,
+      appId: "skills",
+      boost: 3,
+      body: "learning studying AI agents new AI technology tools genai generative engineer next upcoming",
+    }),
+  )
+
+  for (const section of ["projects", "lab"] as const) {
+    if (section === "projects" ? SHOW_PROJECTS : SHOW_LAB) continue
+    const status = PORTFOLIO_STATUS[section]
+    out.push(makeDoc({
+      id: `profile:${section}-status`,
+      kind: "profile",
+      bucket: "jp",
+      title: status.title,
+      subtitle: "Unpublished personal work",
+      detail: status.body,
+      appId: section,
+      boost: 2,
+      body: `${section} personal portfolio work experiments`,
+    }))
+  }
 
   for (const p of PROJECTS) {
     out.push(
@@ -304,7 +347,7 @@ function contentDocs(): Doc[] {
         detail: `${g.hint}: ${names.join(", ")}.`,
         appId: "skills",
         boost: 2,
-        body: "skills stack technology tools proficiency",
+        body: "skills stack technology tools capability",
       }),
     )
     for (const item of g.items) {
@@ -315,10 +358,10 @@ function contentDocs(): Doc[] {
           bucket: "jp",
           title: item.name,
           subtitle: `Skill · ${g.label}`,
-          detail: `Level ${item.level}% · ${g.hint}`,
+          detail: `${item.status} · ${g.hint}`,
           appId: "skills",
-          boost: item.level >= 85 ? 1 : 0,
-          body: "skill technology tool language framework proficiency",
+          boost: 1,
+          body: "skill technology tool language framework capability",
         }),
       )
     }

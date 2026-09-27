@@ -3,9 +3,26 @@
 import { create } from "zustand"
 import type { AppId, Point, Size, SnapSide, Theme, WindowInstance } from "./types"
 import { APP_META } from "./app-meta"
+import { isPhoneViewport } from "./viewport"
 
 const MIN_W = 320
 const MIN_H = 220
+
+/** Fit the whole frame, including its controls, into the usable desktop. */
+export function fitGeometry(geometry: { pos: Point; size: Size }, bounds: Size) {
+  const size = { w: Math.min(geometry.size.w, bounds.w), h: Math.min(geometry.size.h, bounds.h) }
+  return { size, pos: { x: Math.max(0, Math.min(geometry.pos.x, bounds.w - size.w)), y: Math.max(0, Math.min(geometry.pos.y, bounds.h - size.h)) } }
+}
+
+const THEME_KEY = "jp-os-theme-v1"
+
+function saveTheme(theme: Theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme)
+  } catch {
+    /* private mode - the theme just won't persist */
+  }
+}
 
 let seq = 0
 const nextId = () => `w${++seq}`
@@ -19,7 +36,11 @@ function cascade(index: number, size: Size, bounds: Size): Point {
   return { x, y }
 }
 
+export type PhonePanel = "closed" | "compact" | "expanded" | "drawer" | "recents"
+
 type WMState = {
+  phonePanel: PhonePanel
+  setPhonePanel: (panel: PhonePanel) => void
   windows: WindowInstance[]
   focusedId: string | null
   topZ: number
@@ -32,6 +53,8 @@ type WMState = {
   bounds: Size
 
   setBounds: (b: Size) => void
+  /** Restores the theme the visitor picked last time. */
+  hydrateTheme: () => void
   setTheme: (t: Theme) => void
   toggleTheme: () => void
   setStartOpen: (v: boolean) => void
@@ -40,7 +63,8 @@ type WMState = {
   closeFlyouts: () => void
 
   open: (appId: AppId, payload?: Record<string, unknown>, title?: string) => string
-  close: (id: string) => void
+  setUnsavedWork: (id: string, dirty: boolean) => void
+  close: (id: string) => boolean
   focus: (id: string) => void
   minimize: (id: string) => void
   toggleMinimize: (id: string) => void
@@ -55,6 +79,8 @@ type WMState = {
 }
 
 export const useWM = create<WMState>((set, get) => ({
+  phonePanel: "closed",
+  setPhonePanel: (phonePanel) => set({ phonePanel, startOpen: false, qsOpen: false, notifOpen: false }),
   windows: [],
   focusedId: null,
   topZ: 10,
@@ -77,27 +103,34 @@ export const useWM = create<WMState>((set, get) => ({
           return {
             ...w,
             pos: { x: w.snapped === "left" ? 0 : half, y: 0 },
-            size: { w: half, h: bounds.h },
+            size: { w: w.snapped === "left" ? half : bounds.w - half, h: bounds.h },
           }
         }
-        // Free-floating windows just stay at least partially reachable.
-        return {
-          ...w,
-          pos: {
-            x: Math.min(w.pos.x, Math.max(0, bounds.w - 120)),
-            y: Math.min(w.pos.y, Math.max(0, bounds.h - 48)),
-          },
-        }
+        const preferred = w.viewportRestore ?? { pos: w.pos, size: w.size }
+        const fitted = fitGeometry(preferred, bounds)
+        const constrained = fitted.size.w !== preferred.size.w || fitted.size.h !== preferred.size.h || fitted.pos.x !== preferred.pos.x || fitted.pos.y !== preferred.pos.y
+        return { ...w, ...fitted, viewportRestore: constrained ? preferred : null }
       }),
     })),
 
-  setTheme: (theme) => set({ theme }),
-  toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+  hydrateTheme: () => {
+    try {
+      const t = localStorage.getItem(THEME_KEY)
+      if (t === "dark" || t === "light") set({ theme: t })
+    } catch {
+      /* fall through to the default */
+    }
+  },
+  setTheme: (theme) => {
+    set({ theme })
+    saveTheme(theme)
+  },
+  toggleTheme: () => get().setTheme(get().theme === "dark" ? "light" : "dark"),
   // Opening any one shell surface closes the others - two open at once is the classic bug here.
-  setStartOpen: (startOpen) => set({ startOpen, qsOpen: false, notifOpen: false }),
-  setQsOpen: (qsOpen) => set({ qsOpen, startOpen: false, notifOpen: false }),
-  setNotifOpen: (notifOpen) => set({ notifOpen, startOpen: false, qsOpen: false }),
-  closeFlyouts: () => set({ startOpen: false, qsOpen: false, notifOpen: false }),
+  setStartOpen: (startOpen) => set({ startOpen: !isPhoneViewport() && startOpen, qsOpen: false, notifOpen: false, phonePanel: isPhoneViewport() && startOpen ? "drawer" : "closed" }),
+  setQsOpen: (qsOpen) => set({ qsOpen: !isPhoneViewport() && qsOpen, startOpen: false, notifOpen: false, phonePanel: isPhoneViewport() && qsOpen ? "compact" : "closed" }),
+  setNotifOpen: (notifOpen) => set({ notifOpen: !isPhoneViewport() && notifOpen, startOpen: false, qsOpen: false, phonePanel: isPhoneViewport() && notifOpen ? "compact" : "closed" }),
+  closeFlyouts: () => set({ startOpen: false, qsOpen: false, notifOpen: false, phonePanel: "closed" }),
 
   open: (appId, payload, title) => {
     const meta = APP_META[appId]
@@ -114,6 +147,9 @@ export const useWM = create<WMState>((set, get) => ({
           focusedId: existing.id,
           topZ: s.topZ + 1,
           startOpen: false,
+          qsOpen: false,
+          notifOpen: false,
+          phonePanel: "closed",
         }))
         return existing.id
       }
@@ -130,8 +166,7 @@ export const useWM = create<WMState>((set, get) => ({
       appId,
       title: title ?? meta.title,
       payload,
-      pos: cascade(state.windows.length, size, bounds),
-      size,
+      ...fitGeometry({ pos: cascade(state.windows.length, size, bounds), size }, bounds),
       restore: null,
       minimized: false,
       maximized: false,
@@ -139,6 +174,7 @@ export const useWM = create<WMState>((set, get) => ({
       z: state.topZ + 1,
     }
     set((s) => ({
+      phonePanel: "closed",
       windows: [...s.windows, win],
       focusedId: id,
       topZ: s.topZ + 1,
@@ -149,19 +185,30 @@ export const useWM = create<WMState>((set, get) => ({
     return id
   },
 
-  close: (id) =>
+  setUnsavedWork: (id, unsavedWork) => set((s) => ({
+    windows: s.windows.map((w) => w.id === id && !!w.unsavedWork !== unsavedWork ? { ...w, unsavedWork } : w),
+  })),
+
+  close: (id) => {
+    const win = get().windows.find((w) => w.id === id)
+    if (!win) return false
+    if (typeof window !== "undefined" && win.unsavedWork) {
+      if (!window.confirm(`Close ${win.title}? Any unsaved work in this session will be lost. Choose Cancel to keep it.`)) return false
+    }
     set((s) => {
       const windows = s.windows.filter((w) => w.id !== id)
-      const focusedId =
-        s.focusedId === id
-          ? windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0]?.id ?? null
-          : s.focusedId
+      const focusedId = s.focusedId === id
+        ? windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0]?.id ?? null
+        : s.focusedId
       return { windows, focusedId }
-    }),
+    })
+    return true
+  },
 
   focus: (id) =>
     set((s) => {
-      if (s.focusedId === id) {
+      if (!s.windows.some((w) => w.id === id)) return s
+      if (s.focusedId === id && s.phonePanel === "closed") {
         const w = s.windows.find((x) => x.id === id)
         if (w && !w.minimized) return s
       }
@@ -169,6 +216,7 @@ export const useWM = create<WMState>((set, get) => ({
         windows: s.windows.map((w) =>
           w.id === id ? { ...w, minimized: false, z: s.topZ + 1 } : w,
         ),
+        phonePanel: "closed",
         focusedId: id,
         topZ: s.topZ + 1,
       }
@@ -198,13 +246,13 @@ export const useWM = create<WMState>((set, get) => ({
         if (w.id !== id) return w
         if (w.maximized || w.snapped) {
           const r = w.restore ?? { pos: { x: 60, y: 60 }, size: { w: 900, h: 600 } }
-          return { ...w, maximized: false, snapped: null, restore: null, ...r }
+          return { ...w, maximized: false, snapped: null, restore: null, viewportRestore: r, ...fitGeometry(r, s.bounds) }
         }
         return {
           ...w,
           maximized: true,
           snapped: null,
-          restore: { pos: w.pos, size: w.size },
+          restore: w.viewportRestore ?? { pos: w.pos, size: w.size },
           pos: { x: 0, y: 0 },
           size: { w: s.bounds.w, h: s.bounds.h },
         }
@@ -221,16 +269,16 @@ export const useWM = create<WMState>((set, get) => ({
           ...w,
           maximized: false,
           snapped: side,
-          restore: w.restore ?? { pos: w.pos, size: w.size },
+          restore: w.restore ?? w.viewportRestore ?? { pos: w.pos, size: w.size },
           pos: { x: side === "left" ? 0 : half, y: 0 },
-          size: { w: half, h: s.bounds.h },
+          size: { w: side === "left" ? half : s.bounds.w - half, h: s.bounds.h },
         }
       }),
     })),
 
   move: (id, pos) =>
     set((s) => ({
-      windows: s.windows.map((w) => (w.id === id ? { ...w, pos } : w)),
+      windows: s.windows.map((w) => (w.id === id ? { ...w, pos, viewportRestore: null } : w)),
     })),
 
   resize: (id, pos, size) =>
@@ -239,10 +287,11 @@ export const useWM = create<WMState>((set, get) => ({
         w.id === id
           ? {
               ...w,
-              pos,
-              size: { w: Math.max(MIN_W, size.w), h: Math.max(MIN_H, size.h) },
+              ...fitGeometry({ pos, size: { w: Math.max(MIN_W, size.w), h: Math.max(MIN_H, size.h) } }, s.bounds),
+              viewportRestore: null,
               maximized: false,
               snapped: null,
+              restore: null,
             }
           : w,
       ),
@@ -258,9 +307,9 @@ export const useWM = create<WMState>((set, get) => ({
       ),
     })),
 
-  closeAll: () => set({ windows: [], focusedId: null }),
+  closeAll: () => { for (const win of [...get().windows]) { if (!get().close(win.id)) break } },
   minimizeAll: () =>
-    set((s) => ({ windows: s.windows.map((w) => ({ ...w, minimized: true })), focusedId: null })),
+    set((s) => ({ windows: s.windows.map((w) => ({ ...w, minimized: true })), focusedId: null, phonePanel: "closed" })),
 }))
 
 export { MIN_W, MIN_H }

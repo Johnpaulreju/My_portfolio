@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, MouseEvent, ReactNode } from "react"
 import { RotateCcw, Shuffle, Timer, Trophy, Undo2, Wand2 } from "lucide-react"
 import type { WindowInstance } from "@/lib/os/types"
+import { useAppActive } from "@/lib/os/app-activity"
 import { playSfx } from "@/lib/os/sfx"
 
 /* ------------------------------------------------------------------ *
@@ -288,11 +289,13 @@ function PlayingCard({
       type="button"
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      aria-label={label}
+      aria-label={card.id === "stock" ? "Draw a card from stock" : label}
+      disabled={!card.up && card.id !== "stock"}
       aria-pressed={selected}
-      className="absolute left-0 overflow-hidden text-left"
+      className="absolute left-0 overflow-hidden text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--os-accent)] motion-reduce:!transform-none motion-reduce:!transition-none"
       style={{
         top,
+        touchAction: "manipulation",
         width: w,
         height: h,
         borderRadius: r,
@@ -374,7 +377,7 @@ function Slot({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="absolute left-0 top-0 grid place-items-center"
+      className="absolute left-0 top-0 grid place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--os-accent)]"
       style={{
         width: w,
         height: h,
@@ -406,7 +409,9 @@ function ToolButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-[6px] text-[12.5px] transition-colors enabled:hover:bg-[var(--os-hover)] disabled:opacity-40"
+      aria-label={label}
+      title={label}
+      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-2.5 py-[6px] text-[12.5px] transition-colors enabled:hover:bg-[var(--os-hover)] disabled:opacity-40"
       style={{ color: "var(--os-fg)", border: "1px solid var(--os-border)", background: "var(--os-card)" }}
     >
       {icon}
@@ -426,6 +431,7 @@ function clock(total: number) {
  * ------------------------------------------------------------------ */
 
 export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
+  const appActive = useAppActive()
   const [dealNo, setDealNo] = useState(1)
   const [game, setGame] = useState<Game>(() => deal(1))
   const [undoStack, setUndoStack] = useState<Game[]>([])
@@ -446,13 +452,16 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
       const avail = el.clientWidth
       if (avail <= 0) return
       const gap = avail < 480 ? 5 : 9
-      const w = Math.max(34, Math.min(96, Math.floor((avail - gap * 6) / 7)))
+      const cap = Number(getComputedStyle(el).getPropertyValue("--solitaire-card-cap")) || 96
+      const w = Math.max(48, Math.min(cap, Math.floor((avail - gap * 6) / 7)))
       setMetrics((m) => (m.w === w && m.gap === gap ? m : { w, gap }))
     }
     measure()
     if (typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver(measure)
     ro.observe(el)
+    const layout = el.closest(".solitaire-layout")
+    if (layout) ro.observe(layout)
     return () => ro.disconnect()
   }, [])
 
@@ -460,34 +469,27 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   const cardH = Math.round(cardW * 1.42)
   const radius = Math.max(4, Math.round(cardW * 0.11))
 
-  /** Stack spacing, compressed when a column grows long so nothing is lost. */
-  const { stepUp, stepDown } = useMemo(() => {
-    const baseUp = Math.max(11, Math.round(cardH * 0.26))
-    const baseDown = Math.max(6, Math.round(cardH * 0.13))
-    let travel = 0
-    for (const pile of game.tableau) {
-      let t = 0
-      for (let i = 0; i < pile.length - 1; i++) t += pile[i].up ? baseUp : baseDown
-      travel = Math.max(travel, t)
-    }
-    const budget = cardH * 3.4
-    const scale = travel > budget ? Math.max(0.45, budget / travel) : 1
-    return { stepUp: Math.max(9, Math.round(baseUp * scale)), stepDown: Math.max(5, Math.round(baseDown * scale)) }
-  }, [game, cardH])
+  // Every exposed face-up card keeps a usable tap strip, even in long runs.
+  // Tall columns scroll instead of squeezing targets into a few pixels.
+  const stepUp = Math.max(44, Math.round(cardH * 0.32))
+  const stepDown = Math.max(12, Math.round(cardH * 0.13))
 
   /* --- timer ---------------------------------------------------- */
   useEffect(() => {
-    if (!started || won) return
+    if (!started || won || !appActive) return
     const t = window.setInterval(() => setElapsed((e) => e + 1), 1000)
     return () => window.clearInterval(t)
-  }, [started, won])
+  }, [started, won, appActive])
 
+  const winAnnounced = useRef(false)
   useEffect(() => {
-    if (won) playSfx("notify")
-  }, [won])
+    if (won && !winAnnounced.current && appActive) playSfx("notify")
+    winAnnounced.current = won
+  }, [won, appActive])
 
   /* --- actions -------------------------------------------------- */
   const start = (n: number) => {
+    if (!appActive) return
     setDealNo(n)
     setGame(deal(n))
     setUndoStack([])
@@ -497,6 +499,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const commit = (next: Game) => {
+    if (!appActive) return
     const before = clone(game)
     setUndoStack((u) => (u.length >= 240 ? [...u.slice(1), before] : [...u, before]))
     setGame(next)
@@ -505,6 +508,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const tryMove = (from: Sel, dest: Dest) => {
+    if (!appActive) return false
     const next = clone(game)
     if (!applyMove(next, from, dest)) return false
     commit(next)
@@ -512,6 +516,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const undo = () => {
+    if (!appActive) return
     if (undoStack.length === 0) return
     setGame(undoStack[undoStack.length - 1])
     setUndoStack((u) => u.slice(0, -1))
@@ -519,12 +524,14 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const drawStock = () => {
+    if (!appActive) return
     const next = clone(game)
     if (!applyDraw(next)) return
     commit(next)
   }
 
   const sendToFoundation = (from: Sel) => {
+    if (!appActive) return
     const cards = carried(game, from)
     if (cards.length !== 1) return
     const f = foundationFor(game, cards[0])
@@ -533,12 +540,14 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const runAutoFinish = () => {
+    if (!appActive) return
     const next = clone(game)
     if (!autoFinish(next)) return
     commit(next)
   }
 
   const clickWaste = () => {
+    if (!appActive) return
     if (game.waste.length === 0) {
       setSel(null)
       return
@@ -547,6 +556,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const clickFoundation = (index: number) => {
+    if (!appActive) return
     if (sel && tryMove(sel, { zone: "foundation", index })) return
     if (game.foundations[index].length === 0) {
       setSel(null)
@@ -556,6 +566,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
   }
 
   const clickTableau = (pile: number, index: number | null) => {
+    if (!appActive) return
     if (sel && tryMove(sel, { zone: "tableau", pile })) return
     const cards = game.tableau[pile]
     if (index === null || index < 0 || index >= cards.length || !cards[index].up) {
@@ -571,6 +582,10 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
 
   const canAuto = !won && game.tableau.every((p) => p.every((c) => c.up)) && game.foundations.some((f) => f.length < 13)
 
+  const selectedCards = sel ? carried(game, sel) : []
+  const selectedHead = selectedCards[0]
+  const canSendToFoundation = selectedCards.length === 1 && foundationFor(game, selectedHead) >= 0
+
   const columns: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(7, ${cardW}px)`,
@@ -580,20 +595,52 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
 
   /* --- render --------------------------------------------------- */
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div
+      className="relative h-full min-h-0"
+      style={{ containerType: "size", containerName: "solitaire" }}
+      onClickCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+      onDoubleClickCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+      onKeyDownCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+    >
+      <style>{`
+        @container solitaire (max-height: 360px) {
+          .solitaire-toolbar { flex-wrap: nowrap; gap: 4px; padding: 2px 4px; }
+          .solitaire-toolbar button { min-width: 44px; justify-content: center; padding: 4px; }
+          .solitaire-toolbar button span { display: none; }
+          .solitaire-stats { flex-wrap: wrap; justify-content: flex-end; gap: 0 6px; padding: 0; font-size: 11px; }
+          .solitaire-deal { display: none; }
+          .solitaire-hint { padding: 0; border: 0; }
+          .solitaire-hint > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+          .solitaire-scroll { padding: 4px; }
+          .solitaire-board { display: grid; grid-template-columns: 101px minmax(366px, 1fr); gap: 12px; min-width: 479px !important; }
+          .solitaire-stock { grid-template-columns: repeat(2, 48px) !important; gap: 18px 5px !important; align-content: start; margin-bottom: 0 !important; }
+          .solitaire-stock > div:nth-child(3) { display: none; }
+          .solitaire-tableau { --solitaire-card-cap: 48; }
+          .solitaire-board > p { grid-column: 1 / -1; padding-top: 0; }
+        }
+      `}</style>
+      <div className="solitaire-layout flex h-full min-h-0 flex-col">
       <header
-        className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2"
+        className="solitaire-toolbar flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2"
         style={{ borderColor: "var(--os-border)", background: "var(--os-chrome)" }}
       >
         <ToolButton icon={<Shuffle size={14} />} label="New game" onClick={() => start(nextDealNumber())} />
         <ToolButton icon={<RotateCcw size={14} />} label="Same deal" onClick={() => start(dealNo)} />
         <ToolButton icon={<Undo2 size={14} />} label="Undo" onClick={undo} disabled={undoStack.length === 0} />
         <ToolButton icon={<Wand2 size={14} />} label="Auto-finish" onClick={runAutoFinish} disabled={!canAuto} />
+        {sel && (
+          <ToolButton
+            icon={<Wand2 size={14} />}
+            label="To foundation"
+            onClick={() => sendToFoundation(sel)}
+            disabled={!canSendToFoundation}
+          />
+        )}
         <div
-          className="ml-auto flex items-center gap-3 pl-2 text-[12px] tabular-nums"
+          className="solitaire-stats ml-auto flex items-center gap-3 pl-2 text-[12px] tabular-nums"
           style={{ color: "var(--os-muted)" }}
         >
-          <span className="hidden sm:inline">Deal #{dealNo}</span>
+          <span className="solitaire-deal hidden sm:inline">Deal #{dealNo}</span>
           <span>{game.moves} moves</span>
           <span className="inline-flex items-center gap-1">
             <Timer size={13} />
@@ -602,17 +649,27 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
         </div>
       </header>
 
+      <div className="solitaire-hint flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 text-[12px]" style={{ borderColor: "var(--os-border)", color: "var(--os-muted)" }}>
+        <span className="min-w-0 flex-1" aria-live="polite">
+          {!appActive
+            ? "Paused — your cards are saved here."
+            : selectedHead
+              ? `${RANKS[selectedHead.rank]} of ${NAME[selectedHead.suit]} selected. Tap a destination.`
+              : "Tap a card, then its destination. Scroll sideways for all seven columns."}
+        </span>
+
+      </div>
       <div
-        className="os-scroll min-h-0 flex-1 overflow-auto p-3"
+        className="solitaire-scroll os-scroll min-h-0 flex-1 overflow-auto p-3"
         style={{
           background:
             "radial-gradient(130% 95% at 50% -10%, color-mix(in srgb, var(--os-accent) 17%, var(--os-surface)), var(--os-surface))",
         }}
         onClick={() => setSel(null)}
       >
-        <div ref={boardRef} className="mx-auto" style={{ maxWidth: 780 }}>
+        <div className="solitaire-board mx-auto" style={{ maxWidth: 780, minWidth: 366 }}>
           {/* Stock + waste, then the four foundations. */}
-          <div style={{ ...columns, marginBottom: Math.max(18, Math.round(cardH * 0.24)) }}>
+          <div className="solitaire-stock" style={{ ...columns, marginBottom: Math.max(18, Math.round(cardH * 0.24)) }}>
             <div className="relative" style={{ height: cardH }} onClick={(e) => e.stopPropagation()}>
               {game.stock.length > 0 ? (
                 <PlayingCard
@@ -705,7 +762,7 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
           </div>
 
           {/* Seven tableau columns. */}
-          <div style={{ ...columns, alignItems: "start" }}>
+          <div ref={boardRef} className="solitaire-tableau" style={{ ...columns, alignItems: "start" }}>
             {game.tableau.map((pile, p) => {
               const tops: number[] = []
               let y = 0
@@ -763,11 +820,12 @@ export function SolitaireApp(_props: { win?: WindowInstance } = {}) {
           </div>
 
           <p className="pt-4 text-center text-[11px]" style={{ color: "var(--os-muted)" }}>
-            Click a card, then click where it goes. Double-click sends it straight to a foundation.
+            Tap a card, then tap where it goes. Use “To foundation” for a selected card, or double-click it. No illegal shortcuts in this stack.
           </p>
         </div>
       </div>
 
+      </div>
       {won && (
         <div className="absolute inset-0 z-20 grid place-items-center p-6" style={{ background: "var(--os-scrim)" }}>
           <div

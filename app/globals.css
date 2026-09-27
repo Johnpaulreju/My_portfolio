@@ -168,19 +168,28 @@ textarea {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-delay: 0s !important;
   }
 }
 
 /* Printing the resume should yield the document, not the desktop around it. */
 @media print {
+  html, body {
+    width: auto;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    background: #fff !important;
+  }
   body * {
     visibility: hidden;
   }
-  article,
-  article * {
+  article[data-resume-document],
+  article[data-resume-document] * {
     visibility: visible;
   }
-  article {
+  article[data-resume-document] {
     position: absolute;
     inset: 0;
     box-shadow: none !important;
@@ -219,4 +228,368 @@ textarea {
 }
 .shell-entering {
   animation: shell-in 700ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+/* The app layer stays mounted while only its surrounding chrome changes. */
+.portfolio-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--os-fg);
+}
+.portfolio-shell-phone {
+  height: var(--phone-height, 100dvh);
+  top: var(--phone-offset, 0px);
+}
+.phone-shell { min-height: 0; }
+.phone-status {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  background: rgba(0, 0, 0, .22);
+}
+.phone-safe-sides, .phone-nav {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.phone-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(0, 0, 0, .4);
+  backdrop-filter: blur(20px);
+}
+.phone-touch {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.phone-session-area {
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  left: env(safe-area-inset-left, 0px);
+  right: env(safe-area-inset-right, 0px);
+}
+.phone-dialog {
+  position: fixed;
+  inset: auto;
+  top: calc(var(--phone-offset, 0px) + env(safe-area-inset-top, 0px) + 8px);
+  left: calc(env(safe-area-inset-left, 0px) + 8px);
+  margin: 0 auto;
+  width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
+  max-width: 560px;
+  height: calc(var(--phone-height, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  color: var(--os-fg);
+  background: var(--os-drawer);
+  border: 1px solid var(--os-border);
+  border-radius: 24px;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, .4);
+  backdrop-filter: blur(30px);
+}
+.phone-dialog[open] { display: flex; animation: drawer-up .18s ease-out; }
+.phone-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.phone-dialog button:focus-visible, .phone-shell button:focus-visible,
+.phone-dialog input:focus-visible, [data-window-id]:focus-visible {
+  outline: 2px solid var(--os-accent);
+  outline-offset: -3px;
+}
+.phone-dialog .os-scroll, .phone-shell .os-scroll { overscroll-behavior: contain; }
+
+/* Phone: status bar and shade */
+.portfolio-shell-phone { --phone-status-h: 32px; }
+@media (max-height: 500px) and (pointer: coarse) { .portfolio-shell-phone { --phone-status-h: 26px; } }
+.phone-status {
+  height: calc(var(--phone-status-h, 32px) + env(safe-area-inset-top, 0px));
+  color: #fff;
+  background: transparent;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  transition: background-color .2s ease, color .2s ease;
+}
+.phone-status[data-over-app] { color: var(--os-fg); background: var(--os-chrome); text-shadow: none; }
+.phone-status-bar {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.phone-status-bar svg { flex-shrink: 0; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .25)); }
+.phone-status[data-over-app] .phone-status-bar svg { filter: none; }
+.phone-status-time { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.phone-status-dot { width: 5px; height: 5px; border-radius: 999px; background: currentColor; }
+.phone-status-pulse { animation: status-pulse 1.2s ease-in-out infinite; }
+@keyframes status-pulse { 50% { opacity: .35; } }
+.phone-session-area { top: calc(var(--phone-status-h, 32px) + env(safe-area-inset-top, 0px)); }
+.portfolio-shell-phone { --shade-nav-h: calc(48px + env(safe-area-inset-bottom, 0px)); --shade-tint: color-mix(in srgb, var(--os-fg) 10%, transparent); }
+.shade-layer { position: absolute; inset: 0; z-index: 150; overflow: hidden; }
+.shade-preview { pointer-events: none; }
+.shade-preview [data-shade-panel] { transform: translate3d(0, -100%, 0); }
+.shade-preview [data-shade-scrim] { opacity: 0; }
+.shade-scrim { position: absolute; inset: 0 0 var(--shade-nav-h) 0; background: rgba(0, 0, 0, .6); }
+.shade-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100% - var(--shade-nav-h) - 12px);
+  margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
+  color: var(--os-fg);
+  background: var(--os-surface);
+  border-radius: 0 0 28px 28px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+  will-change: transform;
+}
+.shade-zone { touch-action: none; -webkit-user-select: none; user-select: none; }
+.shade-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 16px 4px 12px; }
+.shade-clock { font-size: 56px; font-weight: 300; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.shade-date { margin-top: 6px; font-size: 14px; opacity: .8; }
+.shade-chip {
+  display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+  border-radius: 999px; background: var(--shade-tint); font-size: 13px; font-weight: 500;
+}
+.shade-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 0; }
+.shade-round-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); justify-items: center; gap: 2px; padding: 4px 0; }
+.shade-round, .shade-icon-btn, .shade-mute {
+  display: grid; flex-shrink: 0; width: 48px; height: 48px; place-items: center; border-radius: 999px;
+  background: var(--shade-tint); transition: background-color .15s ease, color .15s ease;
+}
+.shade-icon-btn { background: transparent; }
+.shade-round[data-on], .shade-pill[data-on] { background: var(--os-accent); color: var(--os-on-accent); }
+.shade-pill {
+  display: flex; min-width: 0; min-height: 64px; align-items: center; gap: 10px; padding: 0 12px;
+  border-radius: 20px; background: var(--shade-tint); transition: background-color .15s ease, color .15s ease;
+}
+.shade-pill-icon { display: grid; width: 32px; height: 32px; flex-shrink: 0; place-items: center; }
+.shade-slider { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border-radius: 999px; background: var(--shade-tint); }
+.shade-slider input { min-width: 0; flex: 1; height: 48px; accent-color: var(--os-accent); }
+.shade-power {
+  display: flex; min-height: 64px; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 16px; background: var(--shade-tint); font-size: 12px; font-weight: 500;
+}
+.shade-handle { display: flex; justify-content: center; }
+.shade-grab { display: grid; width: 100%; height: 32px; place-items: center; }
+.shade-grab span { width: 36px; height: 4px; border-radius: 2px; background: currentColor; opacity: .4; }
+.shade-card { border-radius: 20px; background: var(--shade-tint); }
+.shade-notif { display: flex; align-items: flex-start; gap: 2px; padding: 2px; touch-action: pan-y; }
+.shade-notif-open { display: flex; min-width: 0; flex: 1; align-items: flex-start; gap: 12px; padding: 10px 4px 10px 10px; border-radius: 18px; text-align: left; }
+.shade-empty { padding: 20px 0; text-align: center; font-size: 14px; opacity: .75; }
+.shade-clear { min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--shade-tint); font-size: 13px; font-weight: 500; }
+.shade-nav { position: absolute; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: space-around; color: #fff; }
+.shade-dialog {
+  position: fixed; top: var(--phone-offset, 0px); left: 0; width: 100%; height: var(--phone-height, 100dvh);
+  max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: hidden;
+  color: var(--os-fg); background: transparent;
+}
+.shade-dialog[open] { display: block; }
+.shade-dialog::backdrop { background: transparent; }
+.shade-dialog:not([data-instant]) .shade-sheet { animation: shade-drop .26s cubic-bezier(.2, 0, 0, 1); }
+.shade-dialog:not([data-instant]) .shade-scrim { animation: shade-fade .26s linear; }
+@keyframes shade-drop { from { transform: translate3d(0, -100%, 0); } }
+@keyframes shade-fade { from { opacity: 0; } }
+.shade-torch {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none;
+  margin: 0; padding: 0; border: 0; background: #fff; color: #3c3c3c;
+}
+.shade-torch[open] { display: block; }
+.shade-torch::backdrop { background: #fff; }
+.shade-torch-off { display: flex; width: 100%; height: 100%; align-items: flex-end; justify-content: center; padding: 0 24px calc(48px + env(safe-area-inset-bottom, 0px)); font-size: 14px; }
+@media (max-height: 500px) {
+  .shade-head { padding: 10px 4px 8px; }
+  .shade-clock { font-size: 36px; }
+}
+.phone-heads-up {
+  position: absolute; z-index: 120; left: 50%; display: flex; flex-direction: column; gap: 8px;
+  top: calc(var(--phone-status-h, 32px) + env(safe-area-inset-top, 0px) + 6px);
+  width: min(560px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  transform: translateX(-50%); pointer-events: none;
+}
+.phone-heads-up-card {
+  display: flex; align-items: flex-start; gap: 2px; padding: 2px; pointer-events: auto; touch-action: none;
+  color: var(--os-fg); background: var(--os-surface); border: 1px solid var(--os-border); border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); animation: heads-up-in .28s cubic-bezier(.2, 0, 0, 1);
+}
+.phone-heads-up-card[data-leaving] { animation: heads-up-out .2s ease-in forwards; }
+.phone-heads-up-open { display: flex; min-width: 0; flex: 1; align-items: flex-start; gap: 12px; padding: 10px 4px 10px 12px; border-radius: 22px; text-align: left; }
+@keyframes heads-up-in { from { opacity: 0; transform: translate3d(0, -120%, 0); } }
+@keyframes heads-up-out { to { opacity: 0; transform: translate3d(0, -60%, 0); } }
+.phone-lock { touch-action: none; }
+.phone-lock-content {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 12vh) calc(24px + env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 24px) calc(24px + env(safe-area-inset-left, 0px));
+}
+.phone-lock-clock { font-size: clamp(72px, 24vw, 112px); font-weight: 200; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 16px rgba(0, 0, 0, .3); }
+.phone-lock-button {
+  display: inline-flex; min-height: 48px; align-items: center; gap: 8px; padding: 0 22px; border-radius: 999px;
+  background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28); backdrop-filter: blur(16px); font-size: 14px; font-weight: 500;
+}
+.phone-lock-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.phone-lock-hint { animation: lock-hint 1.6s ease-in-out infinite; }
+@keyframes lock-hint { 50% { transform: translateY(-5px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .phone-lock-hint { animation: none; } }
+@media (max-height: 500px) {
+  .phone-lock-content { padding-top: calc(env(safe-area-inset-top, 0px) + 16px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  .phone-lock-clock { font-size: 64px; }
+}
+
+/* Phone: home, drawer and recents */
+.phone-home { touch-action: pan-x; }
+.phone-home .phone-home-scroll { touch-action: pan-x pan-y; }
+.phone-home-pager { scrollbar-width: none; overscroll-behavior-x: contain; }
+.phone-home-pager::-webkit-scrollbar { display: none; }
+.phone-app-tile { transition: transform .12s ease-out; -webkit-tap-highlight-color: transparent; }
+.phone-app-tile:active { transform: scale(.93); }
+.phone-app-label { line-height: 1.25; }
+.phone-profile {
+  background: rgba(8, 14, 30, .46);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .22);
+  backdrop-filter: blur(22px) saturate(1.3);
+}
+.phone-next-chip { background: rgba(110, 231, 183, .15); border: 1px solid rgba(110, 231, 183, .42); color: #d1fae5; }
+.phone-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgb(110, 231, 183);
+  animation: phone-pulse 1.8s ease-out infinite;
+}
+@keyframes phone-pulse {
+  from { transform: scale(1); opacity: .75; }
+  to { transform: scale(2.8); opacity: 0; }
+}
+.phone-pill-btn { background: rgba(255, 255, 255, .14); color: #fff; }
+.phone-pill-btn[data-primary] { background: #dbeafe; color: #0b2a5b; }
+.phone-search-pill, .phone-dock {
+  background: rgba(255, 255, 255, .15);
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(20px);
+}
+.phone-search-pill { color: rgba(255, 255, 255, .9); }
+.phone-folder-icon { background: rgba(255, 255, 255, .22); backdrop-filter: blur(12px); }
+.phone-folder {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(328px, calc(100% - 40px));
+  height: fit-content;
+  max-height: calc(var(--phone-height, 100dvh) - 32px);
+  padding: 8px 12px 16px;
+  overflow: auto;
+  color: var(--os-fg);
+  background: var(--os-drawer);
+  border: 1px solid var(--os-border);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .4);
+  backdrop-filter: blur(30px);
+}
+.phone-folder[open] { animation: phone-folder-in .2s cubic-bezier(.2, 0, 0, 1); }
+.phone-folder::backdrop { background: rgba(0, 0, 0, .35); backdrop-filter: blur(6px); }
+@keyframes phone-folder-in {
+  from { opacity: 0; transform: scale(.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+.phone-folder button:focus-visible, .phone-sheet button:focus-visible {
+  outline: 2px solid var(--os-accent);
+  outline-offset: -3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-pulse::before { animation: none; opacity: 0; }
+  .phone-app-tile:active { transform: none; }
+}
+/* Landscape phones: the 3-button nav moves to the right edge, like Android. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .phone-shell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); }
+  .phone-shell > .phone-status { grid-column: 1 / -1; }
+  .phone-shell > .phone-safe-sides { grid-column: 1; grid-row: 2; padding-right: 0; }
+  .phone-shell > .phone-nav {
+    grid-column: 2;
+    grid-row: 2;
+    flex-direction: column-reverse;
+    justify-content: space-around;
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) 0;
+  }
+  .phone-session-area { bottom: env(safe-area-inset-bottom, 0px); right: calc(48px + env(safe-area-inset-right, 0px)); }
+}
+.phone-sheet {
+  position: fixed;
+  inset: 0;
+  top: var(--phone-offset, 0px);
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  height: var(--phone-height, 100dvh);
+  max-height: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--os-fg);
+  background: var(--os-drawer);
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  backdrop-filter: blur(30px);
+}
+.phone-sheet[open] { display: flex; animation: phone-sheet-up .26s cubic-bezier(.2, 0, 0, 1); }
+.phone-sheet::backdrop { background: rgba(0, 0, 0, .3); }
+@keyframes phone-sheet-up {
+  from { opacity: .4; transform: translateY(32%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.phone-sheet-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.phone-sheet .os-scroll { overscroll-behavior: contain; }
+.phone-drawer-search { background: var(--os-input); border: 1px solid var(--os-border); }
+.phone-drawer-search:focus-within { outline: 2px solid var(--os-accent); outline-offset: -2px; }
+.phone-drawer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.phone-ask-chip { background: var(--os-hover); border: 1px solid var(--os-border); }
+.phone-ask-row { background: color-mix(in srgb, var(--os-accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--os-accent) 45%, transparent); }
+@media (orientation: landscape) and (max-height: 500px) {
+  .phone-sheet { flex-direction: row; border-radius: 0; }
+  .phone-sheet-nav { flex-direction: column-reverse; width: 48px; padding: 0 0 env(safe-area-inset-bottom, 0px); }
+  .phone-drawer-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-sheet[open], .phone-folder[open] { animation: none; }
+}
+.phone-recents {
+  padding: 8px calc(50% - min(36vw, 150px));
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.phone-recents::-webkit-scrollbar { display: none; }
+.phone-recent-card { width: min(72vw, 300px); height: min(86%, 580px); touch-action: pan-x; will-change: transform; }
+.phone-recent-preview { box-shadow: 0 16px 40px rgba(0, 0, 0, .3); border: 1px solid var(--os-border); }
+@media (orientation: landscape) and (max-height: 500px) {
+  .phone-recents { padding-inline: calc(50% - min(20vw, 170px)); }
+  .phone-recent-card { width: min(40vw, 340px); height: 92%; }
+}
+
+/* Landscape phones are short: a slimmer app bar leaves more room for the app (games especially). */
+@media (orientation: landscape) and (max-height: 500px) {
+  .phone-app-bar { height: 44px; }
+}
+/* Landscape phones: the shade's copy of the nav sits on the right edge, like the real one. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .shade-nav {
+    top: 0;
+    left: auto;
+    width: calc(48px + env(safe-area-inset-right, 0px));
+    flex-direction: column-reverse;
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) 0;
+  }
+  .shade-scrim { inset: 0 calc(48px + env(safe-area-inset-right, 0px)) 0 0; }
+  .shade-sheet { max-height: calc(100% - env(safe-area-inset-bottom, 0px) - 12px); }
 }

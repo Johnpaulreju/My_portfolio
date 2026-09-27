@@ -30,10 +30,14 @@ import {
   ACHIEVEMENTS,
   LAB,
   PROFILE,
+  PORTFOLIO_STATUS,
   PROJECTS,
+  SHOW_LAB,
+  SHOW_PROJECTS,
   SKILL_GROUPS,
   TIMELINE,
   type Project,
+  type SkillStatus,
 } from "./content"
 
 /* ============================================================ public API == */
@@ -111,7 +115,7 @@ type TechRef = {
   name: string
   /** Skill group label when it appears in the grid, otherwise null. */
   group: string | null
-  level: number | null
+  status: SkillStatus | null
   projects: Project[]
 }
 
@@ -124,20 +128,20 @@ function splitStack(stack: string): string[] {
 
 const TECHS: TechRef[] = (() => {
   const byKey = new Map<string, TechRef>()
-  const put = (name: string, group: string | null, level: number | null) => {
+  const put = (name: string, group: string | null, status: SkillStatus | null) => {
     const key = name.toLowerCase()
     const existing = byKey.get(key)
     if (existing) {
       if (group && !existing.group) {
         existing.group = group
-        existing.level = level
+        existing.status = status
         existing.name = name
       }
       return
     }
-    byKey.set(key, { name, group, level, projects: [] })
+    byKey.set(key, { name, group, status, projects: [] })
   }
-  for (const g of SKILL_GROUPS) for (const i of g.items) put(i.name, g.label, i.level)
+  for (const g of SKILL_GROUPS) for (const i of g.items) put(i.name, g.label, i.status)
   for (const p of PROJECTS) for (const t of splitStack(p.stack)) put(t, null, null)
   for (const tech of Array.from(byKey.values())) {
     const needle = tech.name.toLowerCase()
@@ -145,9 +149,6 @@ const TECHS: TechRef[] = (() => {
   }
   return Array.from(byKey.values())
 })()
-
-const TOP_SKILLS = SKILL_GROUPS.flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })))
-  .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
 
 /**
  * The documents that ship with the desktop. These are facts about the
@@ -167,13 +168,13 @@ const DOCUMENTS: DocRef[] = [
     nodeId: "seed-ideas",
     name: "ideas.txt",
     where: "in the My Notes folder",
-    what: "a short list of what he wants to build next",
+    what: "his learning focus and the status of unpublished personal work",
   },
   {
     nodeId: "seed-intro",
-    name: "Meet Johnpaul.mp4",
+    name: "Video player demo.mp4",
     where: "on the Desktop",
-    what: "a short intro video",
+    what: "a placeholder clip for trying the video player, not a personal introduction",
   },
 ]
 
@@ -793,8 +794,14 @@ const ASK_ME = [
   "How do I reach him?",
 ]
 
+/** While a section is coming soon, no follow-up chip may ask about it. */
+const HIDDEN_TOPICS = [!SHOW_PROJECTS && /\bprojects?\b/i, !SHOW_LAB && /\blab\b/i].filter(
+  (re): re is RegExp => re instanceof RegExp,
+)
+const offerable = (question: string) => !HIDDEN_TOPICS.some((re) => re.test(question))
+
 function answer(a: Partial<AssistantAnswer> & { text: string }): AssistantAnswer {
-  return { confidence: 0.75, ...a }
+  return { confidence: 0.75, ...a, ...(a.suggestions && { suggestions: a.suggestions.filter(offerable) }) }
 }
 
 const projectFact = (p: Project) => ({
@@ -802,23 +809,29 @@ const projectFact = (p: Project) => ({
   value: `${p.stack} · ${p.year} — ${sentence(p.desc)}`,
 })
 
-const openProjects = () => act("open-app", "Projects")
+const openProjects = () => (SHOW_PROJECTS ? act("open-app", "Projects") : null)
 const openContact = () => act("open-app", "Contact")
+
+function renderComingSoon(section: "projects" | "lab"): AssistantAnswer {
+  const status = PORTFOLIO_STATUS[section]
+  return answer({
+    text: `${status.title}. ${status.body}`,
+    actions: acts(act("open-app", section === "projects" ? "Projects" : "Lab"), act("open-app", "Skills"), openContact()),
+    suggestions: ["What's his tech stack?", "Where has he worked?", "How do I reach him?"],
+    confidence: 0.9,
+  })
+}
 
 function renderIdentity(): AssistantAnswer {
   return answer({
-    text:
-      `${PROFILE.name} is an ${PROFILE.title} based in ${PROFILE.location}, and the line he leads ` +
-      `with is "${PROFILE.tagline}"\n\n` +
-      `On this profile that shows up as ${PROJECTS.length} projects spread across ` +
-      `${list(CATEGORIES)}, ${WORK.length} ${plural(WORK.length, "role")} ` +
-      `going back to ${WORK[WORK.length - 1].year}, and two degrees. What he actually leads with is ` +
-      `speed: ${PROFILE.uvp.join(" ")}`,
+    text: `${PROFILE.name} is a software engineer in ${PROFILE.location}, and an upcoming GenAI engineer.\n\nHe says: “${PROFILE.tagline}” ${PROFILE.availability}\n\nHis learning note: “${PROFILE.learning}”`,
     facts: [
       { label: "Name", value: PROFILE.name },
       { label: "Role", value: PROFILE.title },
+      { label: "Next", value: PROFILE.next },
+      { label: "Work", value: PROFILE.role },
       { label: "Based in", value: PROFILE.location },
-      { label: "Signs off as", value: PROFILE.initials },
+      { label: "Availability", value: PROFILE.availability },
     ],
     actions: acts(act("open-app", "About Me"), act("open-app", "Resume")),
     suggestions: ["What does he build?", "Where has he worked?", "What's his tech stack?"],
@@ -827,6 +840,16 @@ function renderIdentity(): AssistantAnswer {
 }
 
 function renderBuilds(): AssistantAnswer {
+  if (!SHOW_PROJECTS) {
+    return answer({
+      text:
+        `He says: “${PROFILE.tagline}” ${PROFILE.availability}\n\n${PORTFOLIO_STATUS.projects.body}`,
+      facts: SKILL_GROUPS.map((g) => ({ label: g.label, value: g.items.map((i) => i.name).join(", ") })),
+      actions: acts(act("open-app", "Skills"), act("open-app", "Experience")),
+      suggestions: ["What's his tech stack?", "Where has he worked?", "How do I reach him?"],
+      confidence: 0.84,
+    })
+  }
   const newest = BY_RECENCY.slice(0, 3)
   return answer({
     text:
@@ -842,59 +865,36 @@ function renderBuilds(): AssistantAnswer {
 }
 
 function renderStack(): AssistantAnswer {
-  const top = TOP_SKILLS.slice(0, 3)
   return answer({
-    text:
-      `He groups his stack ${SKILL_GROUPS.length} ways — ${list(SKILL_GROUPS.map((g) => g.label))} — ` +
-      `and rates himself highest on ${list(top.map((t) => `${t.name} (${t.level})`))}.\n\n` +
-      `Python and the LLM tooling around it carry the AI side; React, Next.js and FastAPI carry the ` +
-      `product side. Ask about any one of them and I'll tell you where it actually shows up.`,
+    text: `His skills cover AI tools, websites, and React Native apps. Python and LLM tools support the AI work; React, Next.js and APIs support the web work.\n\nHis learning note: “${PROFILE.learning}”`,
     facts: SKILL_GROUPS.map((g) => ({
       label: g.label,
-      value: `${[...g.items].sort((a, b) => b.level - a.level).map((i) => i.name).join(", ")} — ${g.hint}`,
+      value: `${g.items.map((i) => `${i.name} (${i.status})`).join(", ")} — ${g.hint}`,
     })),
-    actions: acts(act("open-app", "Skills"), openProjects()),
-    suggestions: ["Does he know React?", "What has he built with Python?", "How strong is his AI/ML?"],
+    actions: acts(act("open-app", "Skills")),
+    suggestions: ["Does he know React Native?", "What is he learning?", "How do I reach him?"],
     confidence: 0.88,
   })
 }
 
 function renderSkillArea(ctx: Ctx): AssistantAnswer {
-  const label = ctx.slots.category
-  const group = SKILL_GROUPS.find((g) => g.label === label)
+  const group = SKILL_GROUPS.find((g) => g.label === ctx.slots.category)
   if (!group) return renderStack()
-  const sorted = [...group.items].sort((a, b) => b.level - a.level)
   return answer({
-    text:
-      `${group.label} is one of his ${SKILL_GROUPS.length} groups; his own gloss on it is ` +
-      `"${group.hint}". He lists ` +
-      `${sorted.length} ${plural(sorted.length, "entry", "entries")} there, topping out at ` +
-      `${sorted[0].name} on ${sorted[0].level} and bottoming out at ` +
-      `${sorted[sorted.length - 1].name} on ${sorted[sorted.length - 1].level}. Those are his own ` +
-      `self-ratings, not test scores.`,
-    facts: sorted.map((i) => ({ label: i.name, value: `${i.level} / 100` })),
+    text: `${group.label}: ${group.hint}. Skills are grouped by what he builds with and what he is studying.`,
+    facts: group.items.map((i) => ({ label: i.name, value: i.status })),
     actions: acts(act("open-app", "Skills")),
-    suggestions: ["What's his full stack?", "Show me his AI projects", "What are his strongest skills?"],
+    suggestions: ["What's his full stack?", "What is he learning?", "How do I reach him?"],
     confidence: 0.85,
   })
 }
 
 function renderTopSkills(): AssistantAnswer {
-  const top = TOP_SKILLS.slice(0, 5)
-  const byGroup = SKILL_GROUPS.map((g) => ({
-    label: g.label,
-    best: [...g.items].sort((a, b) => b.level - a.level)[0],
-  }))
   return answer({
-    text:
-      `By his own ratings the top five are ` +
-      `${list(top.map((t) => `${t.name} (${t.level})`))}. Those are self-assessments on the profile, ` +
-      `not benchmarks, so read them as where he'd put his own confidence.\n\n` +
-      `Per group the leader is ` +
-      `${list(byGroup.map((g) => `${g.best.name} in ${g.label}`))}.`,
-    facts: top.map((t) => ({ label: t.name, value: `${t.level} / 100 — ${t.group}` })),
-    actions: acts(act("open-app", "Skills"), openProjects()),
-    suggestions: ["What has he built with Python?", "Show me his AI projects", "What's his full stack?"],
+    text: "His focus is AI tools, web development, and React Native apps. The profile lists capabilities and ongoing study without ranking them or assigning proficiency scores.",
+    facts: SKILL_GROUPS.map((g) => ({ label: g.label, value: g.items.map((i) => i.name).join(", ") })),
+    actions: acts(act("open-app", "Skills"), openContact()),
+    suggestions: ["Does he know React Native?", "What is he learning?", "What's his full stack?"],
     confidence: 0.86,
   })
 }
@@ -903,7 +903,9 @@ function renderTech(ctx: Ctx): AssistantAnswer {
   const tech = ctx.slots.tech
   if (!tech) return renderStack()
   const used = tech.projects
-  const where = used.length === 0
+  const where = !SHOW_PROJECTS
+    ? ``
+    : used.length === 0
     ? `No project on this profile lists it in its stack, though — so I can tell you he claims it, ` +
       `not where he shipped it.`
     : used.length === 1
@@ -912,15 +914,15 @@ function renderTech(ctx: Ctx): AssistantAnswer {
   // "Yes —" only belongs on an actual yes/no question.
   const lead = /^(does|do|can|has|have|is|did|was)\b/.test(ctx.q) ? "Yes — " : ""
 
-  if (tech.group && tech.level !== null) {
+  if (tech.group && tech.status !== null) {
     return answer({
-      text:
-        `${lead}${tech.name} sits in his ${tech.group} group at ${tech.level} out of 100, self-rated. ` +
-        `${where}`,
+      text: `${tech.status === "Studying" ? "He is studying" : `${lead}${lead ? "he" : "He"} builds with`} ${tech.name}, listed under ${tech.group}. ${where}`.trim(),
       facts: [
         { label: "Skill group", value: tech.group },
-        { label: "Self-rating", value: `${tech.level} / 100` },
-        { label: "Projects using it", value: used.length ? used.map((p) => p.title).join(", ") : "None listed" },
+        { label: "Focus", value: tech.status },
+        ...(SHOW_PROJECTS
+          ? [{ label: "Projects using it", value: used.length ? used.map((p) => p.title).join(", ") : "None listed" }]
+          : []),
       ],
       actions: acts(act("open-app", "Skills"), openProjects()),
       suggestions: ["What's his full stack?", "What's his newest project?", "How do I reach him?"],
@@ -941,6 +943,7 @@ function renderTech(ctx: Ctx): AssistantAnswer {
 }
 
 function renderProjects(): AssistantAnswer {
+  if (!SHOW_PROJECTS) return renderComingSoon("projects")
   return answer({
     text:
       `There are ${PROJECTS.length} projects on this profile, dated ${PROJECT_YEARS[0]} to ` +
@@ -990,6 +993,7 @@ function renderProjectDetail(ctx: Ctx): AssistantAnswer {
 
 function renderCategory(ctx: Ctx): AssistantAnswer {
   const category = ctx.slots.category
+  if (!SHOW_PROJECTS && /\bprojects?\b/.test(ctx.q)) return renderComingSoon("projects")
   const hits = category ? projectsIn(category) : []
   if (!category || hits.length === 0) {
     // The label matched a skill group with no matching project category.
@@ -1024,8 +1028,10 @@ function renderYear(ctx: Ctx): AssistantAnswer {
   if (hits.length === 0 && timeline.length === 0) {
     return answer({
       text:
-        `Nothing on this profile is dated ${year}. The projects run ${PROJECT_YEARS[0]}–` +
-        `${PROJECT_YEARS[PROJECT_YEARS.length - 1]} and the timeline runs ` +
+        `Nothing on this profile is dated ${year}. ` +
+        (SHOW_PROJECTS
+          ? `The projects run ${PROJECT_YEARS[0]}–${PROJECT_YEARS[PROJECT_YEARS.length - 1]} and the timeline runs `
+          : `The timeline runs `) +
         `${TIMELINE[TIMELINE.length - 1].year}–${TIMELINE[0].year}.`,
       actions: acts(openProjects(), act("open-app", "Experience")),
       suggestions: ["What's his newest project?", "Where has he worked?", "What did he study?"],
@@ -1049,7 +1055,7 @@ function renderYear(ctx: Ctx): AssistantAnswer {
       `${hits.length} ${plural(hits.length, "project")} on the profile ${plural(hits.length, "carries", "carry")} ` +
       `that year.`,
     )
-  } else {
+  } else if (SHOW_PROJECTS) {
     parts.push(`No projects on the profile carry that year.`)
   }
 
@@ -1057,12 +1063,13 @@ function renderYear(ctx: Ctx): AssistantAnswer {
     text: parts.join(" "),
     facts: hits.map(projectFact),
     actions: acts(openProjects(), act("open-app", "Experience")),
-    suggestions: ["What's his newest project?", "Where has he worked?", "What are his numbers?"],
+    suggestions: ["What's his newest project?", "Where has he worked?", "What is he learning?"],
     confidence: 0.85,
   })
 }
 
 function renderNewest(): AssistantAnswer {
+  if (!SHOW_PROJECTS) return renderComingSoon("projects")
   const alsoThatYear = projectsFrom(NEWEST.year).filter((p) => p.id !== NEWEST.id)
   return answer({
     text:
@@ -1080,6 +1087,7 @@ function renderNewest(): AssistantAnswer {
 }
 
 function renderBest(): AssistantAnswer {
+  if (!SHOW_PROJECTS) return renderComingSoon("projects")
   const lines: { label: string; value: string }[] = []
   if (MEASURED) {
     lines.push({
@@ -1099,44 +1107,47 @@ function renderBest(): AssistantAnswer {
       `If you want a judgement rather than a fact, that's a question for him directly.`,
     facts: lines,
     actions: acts(openProjects(), openContact()),
-    suggestions: ["What are his numbers?", "What's his newest project?", "How do I reach him?"],
+    suggestions: ["What is he learning?", "What's his newest project?", "How do I reach him?"],
     confidence: 0.82,
   })
 }
 
 function renderExperience(): AssistantAnswer {
-  const span = `${WORK[WORK.length - 1].year}–${WORK[0].year}`
   return answer({
-    text:
-      `${WORK.length} roles are on the timeline, ${span}. He's currently ${WORK[0].label} at ` +
-      `${WORK[0].org}; before that, ${list(WORK.slice(1).map((w) => `${w.label} at ${w.org} (${w.year})`))}.\n\n` +
-      `Each role on the profile comes with its own numbers rather than a job description.`,
+    text: `He is a ${PROFILE.title} and a ${PROFILE.role}. ${PROFILE.availability}\n\nHis employer history lists ${list(WORK.map((w) => `${w.label} at ${w.org} (${w.year})`))}. The work below belongs to those roles.`,
     facts: WORK.map((w) => ({
       label: `${w.label} — ${w.org} (${w.year})`,
       value: sentence(w.facts.join("; ")),
     })),
     actions: acts(act("open-app", "Experience"), act("open-app", "Resume")),
-    suggestions: ["What did he study?", "What are his numbers?", "Is he available for work?"],
+    suggestions: ["What did he study?", "What is he learning?", "Is he available for work?"],
     confidence: 0.88,
   })
 }
 
 function renderCurrentRole(): AssistantAnswer {
-  const now = WORK[0]
   return answer({
-    text:
-      `As of the most recent entry on the timeline, ${now.year}, he's ${now.label} at ${now.org}. ` +
-      `What that role records: ${sentence(now.facts.join("; "))}\n\n` +
-      `The profile doesn't say whether that's still current today, so treat ${now.year} as the last ` +
-      `date it can vouch for.`,
+    text: `He is a ${PROFILE.title} and a ${PROFILE.role}. ${PROFILE.availability}\n\nNext, he is becoming a GenAI engineer. His learning note: “${PROFILE.learning}” His dated employer roles are listed separately in Experience.`,
     facts: [
-      { label: "Role", value: now.label },
-      { label: "Organisation", value: now.org },
-      { label: "Since", value: String(now.year) },
+      { label: "Role", value: PROFILE.title },
+      { label: "Next", value: PROFILE.next },
+      { label: "Work", value: PROFILE.role },
+      { label: "Availability", value: PROFILE.availability },
+      { label: "Learning", value: PROFILE.learning },
     ],
     actions: acts(act("open-app", "Experience"), openContact()),
-    suggestions: ["What's his full work history?", "What's in his lab?", "How do I reach him?"],
-    confidence: 0.85,
+    suggestions: ["What's his full work history?", "What's his tech stack?", "How do I reach him?"],
+    confidence: 0.9,
+  })
+}
+
+function renderLearning(): AssistantAnswer {
+  return answer({
+    text: `He is an upcoming GenAI engineer. His learning note: “${PROFILE.learning}”`,
+    facts: SKILL_GROUPS.flatMap((g) => g.items.filter((i) => i.status === "Studying").map((i) => ({ label: i.name, value: i.status }))),
+    actions: acts(act("open-app", "Skills")),
+    suggestions: ["What's his tech stack?", "Where has he worked?", "How do I reach him?"],
+    confidence: 0.9,
   })
 }
 
@@ -1152,51 +1163,33 @@ function renderEducation(): AssistantAnswer {
       value: sentence(s.facts.join("; ")),
     })),
     actions: acts(act("open-app", "Experience"), act("open-app", "Resume")),
-    suggestions: ["Where has he worked?", "What are his certifications?", "What are his numbers?"],
+    suggestions: ["Where has he worked?", "What are his certifications?", "What is he learning?"],
     confidence: 0.9,
   })
 }
 
 function renderAchievements(): AssistantAnswer {
-  const certs = ACHIEVEMENTS.filter((a) => a.icon === "badge")
-  const gains = ACHIEVEMENTS.filter((a) => a.icon === "chart")
-  const prizes = ACHIEVEMENTS.filter((a) => a.icon === "trophy")
   return answer({
-    text:
-      `${ACHIEVEMENTS.length} entries are listed — ` +
-      `${list([
-        `${prizes.length} ${plural(prizes.length, "competition placing")}`,
-        `${certs.length} ${plural(certs.length, "certification")}`,
-        `${gains.length} measured efficiency ${plural(gains.length, "gain")}`,
-      ])}.\n\n` +
-      `The one he puts first is ${prizes.length ? prizes[0].title : ACHIEVEMENTS[0].title}: ` +
-      `${sentence(prizes.length ? prizes[0].detail : ACHIEVEMENTS[0].detail)}`,
+    text: "His profile lists certifications and a Cyber-Hackathon entry in the AI security track.",
     facts: ACHIEVEMENTS.map((a) => ({ label: a.title, value: a.detail })),
     actions: acts(act("open-app", "Awards"), act("open-app", "Resume")),
-    suggestions: ["What are his numbers?", "What did he study?", "Where has he worked?"],
+    suggestions: ["What did he study?", "Where has he worked?", "How do I reach him?"],
     confidence: 0.88,
   })
 }
 
 function renderMetrics(): AssistantAnswer {
-  const numeric = ACHIEVEMENTS.filter((a) => /\d/.test(a.title))
   return answer({
-    text:
-      `The headline he puts on it is: ${sentence(PROFILE.uvp[2])} Those figures aren't free-floating — ` +
-      `each one traces back to a role or an achievement on the profile.\n\n` +
-      `The ICU predictor is the one project whose own description carries a number: ` +
-      `${MEASURED ? sentence(MEASURED.desc) : "none listed."}`,
-    facts: [
-      ...WORK.map((w) => ({ label: `${w.org} (${w.year})`, value: sentence(w.facts.join("; ")) })),
-      ...numeric.map((a) => ({ label: a.title, value: a.detail })),
-    ],
-    actions: acts(act("open-app", "Awards"), act("open-app", "Experience")),
-    suggestions: ["Where has he worked?", "Which project has the 85% accuracy?", "How do I reach him?"],
-    confidence: 0.86,
+    text: "The profile does not publish verified performance metrics. His employer history describes the work and names the organisation for each role.",
+    facts: WORK.map((w) => ({ label: `${w.org} (${w.year})`, value: sentence(w.facts.join("; ")) })),
+    actions: acts(act("open-app", "Experience"), openContact()),
+    suggestions: ["Where has he worked?", "What's his tech stack?", "How do I reach him?"],
+    confidence: 0.9,
   })
 }
 
 function renderLab(): AssistantAnswer {
+  if (!SHOW_LAB) return renderComingSoon("lab")
   return answer({
     text:
       `Two things are in the lab rather than the portfolio — unfinished, and labelled as such: ` +
@@ -1211,6 +1204,7 @@ function renderLab(): AssistantAnswer {
 }
 
 function renderLabItem(ctx: Ctx): AssistantAnswer {
+  if (!SHOW_LAB) return renderComingSoon("lab")
   const l = ctx.slots.lab
   if (!l) return renderLab()
   const other = LAB.filter((x) => x.title !== l.title)
@@ -1246,7 +1240,7 @@ function renderOrg(ctx: Ctx): AssistantAnswer {
       value: sentence(t.facts.join("; ")),
     })),
     actions: acts(act("open-app", "Experience"), act("open-app", "Resume")),
-    suggestions: ["What's his full work history?", "What did he study?", "What are his numbers?"],
+    suggestions: ["What's his full work history?", "What did he study?", "What is he learning?"],
     confidence: 0.87,
   })
 }
@@ -1256,9 +1250,9 @@ function renderContact(): AssistantAnswer {
     text:
       `Email is the direct route — ${PROFILE.email} — and the Contact app in this desktop opens a ` +
       `composer pointed at it. He also lists a phone number, a GitHub and a LinkedIn.\n\n` +
-      `Whether he's currently available isn't stated anywhere on this profile, so the honest answer ` +
-      `to "is he free?" is: ask him.`,
+      PROFILE.availability,
     facts: [
+      { label: "Availability", value: PROFILE.availability },
       { label: "Email", value: PROFILE.email },
       { label: "Phone", value: PROFILE.phone },
       { label: "GitHub", value: PROFILE.github },
@@ -1279,6 +1273,7 @@ function renderLocation(): AssistantAnswer {
       `Ask him directly and you'll get a real answer.`,
     facts: [
       { label: "Based in", value: PROFILE.location },
+      { label: "Availability", value: PROFILE.availability },
       { label: "Email", value: PROFILE.email },
     ],
     actions: acts(openContact()),
@@ -1290,7 +1285,7 @@ function renderLocation(): AssistantAnswer {
 function renderName(): AssistantAnswer {
   return answer({
     text:
-      `${PROFILE.name}, ${PROFILE.title}. He signs things "${PROFILE.initials}", and this whole ` +
+      `${PROFILE.name}, ${PROFILE.headline}. He signs things "${PROFILE.initials}", and this whole ` +
       `desktop is named after those initials.`,
     facts: [
       { label: "Full name", value: PROFILE.name },
@@ -1325,7 +1320,7 @@ function renderDocuments(ctx: Ctx): AssistantAnswer {
       `Anything else in File Explorer is yours, not his: the desktop lets you make your own files and ` +
       `keeps them in your browser.`,
     facts: [
-      { label: "Resume", value: "Its own app on the desktop — a one-page CV" },
+      { label: "Resume", value: "Résumé view — Print / Save as PDF" },
       ...DOCUMENTS.map((d) => ({ label: d.name, value: `${d.where} — ${d.what}` })),
     ],
     actions: acts(
@@ -1352,10 +1347,10 @@ function renderOpenApp(ctx: Ctx): AssistantAnswer {
 function renderResume(): AssistantAnswer {
   return answer({
     text:
-      `His resume is an app on this desktop rather than a download — one page, ${PROFILE.title}, ` +
-      `with the same timeline and numbers you'll find in Experience.`,
+      `His résumé includes his profile, freelance availability, skills, ongoing study and employer history. Open the résumé view and choose Print / Save as PDF.`,
     facts: [
-      { label: "Resume", value: `${PROFILE.name} — ${PROFILE.title}` },
+      { label: "Resume", value: `${PROFILE.name} — ${PROFILE.headline}` },
+      { label: "Availability", value: PROFILE.availability },
       { label: "Email", value: PROFILE.email },
     ],
     actions: acts(act("open-app", "Resume"), openContact()),
@@ -1443,8 +1438,9 @@ function renderHelp(): AssistantAnswer {
   return answer({
     text:
       `I answer from one file — the profile content behind this desktop — and nothing else. That ` +
-      `covers who ${PROFILE.name.split(" ")[0]} is, the ${PROJECTS.length} projects listed here, his ` +
-      `stack, his timeline, his certifications and how to reach him.\n\n` +
+      `covers who ${PROFILE.name.split(" ")[0]} is, ` +
+      (SHOW_PROJECTS ? `the ${PROJECTS.length} projects listed here, ` : ``) +
+      `his stack, his timeline, his certifications and how to reach him.\n\n` +
       `I can also drive the desktop: open an app, switch the theme, find a file, show the desktop. ` +
       `When something isn't in the profile I'll tell you it isn't, rather than making it up.`,
     actions: acts(act("open-app", "About Me"), openProjects(), openContact()),
@@ -1599,6 +1595,14 @@ const INTENTS: Intent[] = [
     patterns: [/\b(best|favou?rite|most impressive|proudest|stand ?out)\b/],
     priority: 6,
     render: renderBest,
+  },
+  {
+    id: "learning",
+    kind: "answer",
+    cues: [["learn"]],
+    patterns: [/\b(learn|learning|studying|ongoing study|new ai technology)\b/],
+    priority: 8,
+    render: renderLearning,
   },
   {
     id: "current-role",
@@ -1840,7 +1844,7 @@ function unknownAnswer(ctx: Ctx): AssistantAnswer {
   })
 }
 
-/** "the icu predictor", "2019", "readme.txt" - a subject with no verb. */
+/** A technology, year or document name can be a subject with no verb. */
 function bareEntityAnswer(ctx: Ctx): AssistantAnswer | null {
   const soften = (a: AssistantAnswer): AssistantAnswer => ({
     ...a,
@@ -1902,9 +1906,7 @@ export function ask(question: string, history: AssistantTurn[] = []): AssistantA
     return bare ?? unknownAnswer(ctx)
   }
 
-  // A named subject outranks a weak keyword hit that ignores it. "Sign-Language
-  // Recognizer" contains "language", which stems onto the tech-stack cue and
-  // otherwise won the question with a generic answer about his stack.
+  // A named subject outranks a weak keyword hit that ignores it.
   if (bestScore < 0.75 && !(bestIntent.slots ?? []).some((slot) => slotFilled(ctx, slot.name))) {
     const bare = bareEntityAnswer(ctx)
     if (bare) return bare
@@ -1925,6 +1927,6 @@ export const SUGGESTED_QUESTIONS: string[] = [
   "What's his newest project?",
   "Where has he worked?",
   "What did he study?",
-  "What are his numbers?",
+  "What is he learning?",
   "How do I reach him?",
-]
+].filter(offerable)

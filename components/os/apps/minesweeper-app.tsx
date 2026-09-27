@@ -15,6 +15,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react"
 import { useWM } from "@/lib/os/wm-store"
+import { useAppActive } from "@/lib/os/app-activity"
 import { playSfx } from "@/lib/os/sfx"
 
 /* ------------------------------------------------------------------ *
@@ -327,6 +328,7 @@ const NUM_DARK = ["", "#69b0ff", "#5fd37a", "#ff7d72", "#aab4ff", "#f0977a", "#4
  * ------------------------------------------------------------------ */
 
 export function MinesweeperApp() {
+  const appActive = useAppActive()
   const theme = useWM((s) => s.theme)
   const numbers = theme === "light" ? NUM_LIGHT : NUM_DARK
 
@@ -335,6 +337,7 @@ export function MinesweeperApp() {
   const [pressing, setPressing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [flagMode, setFlagMode] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   const gridRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<HTMLDivElement | null>(null)
@@ -355,10 +358,10 @@ export function MinesweeperApp() {
   }, [state.gameId])
 
   useEffect(() => {
-    if (status !== "playing") return
+    if (status !== "playing" || !appActive || showHelp) return
     const id = window.setInterval(() => setSeconds((s) => (s >= 999 ? 999 : s + 1)), 1000)
     return () => window.clearInterval(id)
-  }, [status, state.gameId])
+  }, [status, state.gameId, appActive, showHelp])
 
   /* ---- end of game: sound, and a personal best worth keeping ---- */
 
@@ -368,16 +371,24 @@ export function MinesweeperApp() {
     if (!over || scored.current === state.gameId) return
     scored.current = state.gameId
     if (status === "lost") {
-      playSfx("error")
+      if (appActive) playSfx("error")
       return
     }
-    playSfx("notify")
+    if (appActive) playSfx("notify")
     const prev = BEST[state.level]
     if (prev === undefined || secondsRef.current < prev) {
       BEST[state.level] = secondsRef.current
       bumpBest()
     }
-  }, [over, status, state.gameId, state.level])
+  }, [over, status, state.gameId, state.level, appActive])
+
+  useEffect(() => {
+    if (!appActive) {
+      setPressing(false)
+      setMenuOpen(false)
+      swallowClick.current = swallowMenu.current = false
+    }
+  }, [appActive])
 
   /* ---- the face reacts while the mouse is held down anywhere on the board ---- */
 
@@ -386,9 +397,11 @@ export function MinesweeperApp() {
     const up = () => setPressing(false)
     window.addEventListener("pointerup", up)
     window.addEventListener("pointercancel", up)
+    window.addEventListener("blur", up)
     return () => {
       window.removeEventListener("pointerup", up)
       window.removeEventListener("pointercancel", up)
+      window.removeEventListener("blur", up)
     }
   }, [pressing])
 
@@ -423,11 +436,11 @@ export function MinesweeperApp() {
   }, [])
 
   const size = useMemo(() => {
-    if (box.w < 40 || box.h < 40) return 24
+    if (box.w < 40 || box.h < 40) return 36
     // container padding + board padding + borders, then one hairline per gap
     const byW = Math.floor((box.w - 34 - (cols - 1)) / cols)
     const byH = Math.floor((box.h - 34 - (rows - 1)) / rows)
-    return Math.max(15, Math.min(34, Math.min(byW, byH)))
+    return Math.max(36, Math.min(44, Math.min(byW, byH)))
   }, [box, cols, rows])
 
   /* ---- input ---- */
@@ -437,9 +450,12 @@ export function MinesweeperApp() {
     el?.focus()
   }, [])
 
-  const newGame = useCallback((level?: Level) => dispatch({ type: "new", level }), [])
+  const newGame = useCallback((level?: Level) => {
+    if (appActive) dispatch({ type: "new", level })
+  }, [appActive])
 
   const onCellMouseDown = (e: ReactMouseEvent<HTMLButtonElement>, index: number) => {
+    if (!appActive) return
     // Left+right together, or the middle button: chord.
     if (e.buttons === 3 || e.button === 1) {
       e.preventDefault()
@@ -456,6 +472,7 @@ export function MinesweeperApp() {
   }
 
   const onCellClick = (index: number) => {
+    if (!appActive) return
     if (swallowClick.current) {
       swallowClick.current = false
       return
@@ -469,6 +486,7 @@ export function MinesweeperApp() {
   }
 
   const onCellContextMenu = (e: ReactMouseEvent<HTMLButtonElement>, index: number) => {
+    if (!appActive) return
     e.preventDefault()
     e.stopPropagation()
     if (swallowMenu.current) {
@@ -479,6 +497,7 @@ export function MinesweeperApp() {
   }
 
   const onGridKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!appActive) return
     const key = e.key
     const c = state.cursor
     let next = c
@@ -521,21 +540,43 @@ export function MinesweeperApp() {
   const best = BEST[state.level]
 
   return (
-    <div className="flex h-full min-h-0 flex-col" style={{ color: "var(--os-fg)" }}>
+    <div
+      className="relative h-full min-h-0"
+      style={{ color: "var(--os-fg)", containerType: "size", containerName: "minesweeper" }}
+      onClickCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+      onPointerDownCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+      onKeyDownCapture={(e) => { if (!appActive) { e.preventDefault(); e.stopPropagation() } }}
+    >
+      <style>{`
+        @container minesweeper (max-height: 360px) {
+          .mines-menu { flex-wrap: nowrap; padding: 2px 4px; }
+          .mines-level { display: none; }
+          .mines-score { padding: 2px 4px; }
+          .mines-score > div { padding: 0 4px; border: 0 !important; }
+          .mines-board { padding: 4px; }
+          .mines-status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+          .mines-dropdown { max-height: calc(100cqh - 54px); overflow-y: auto; }
+        }
+        @container minesweeper (max-height: 360px) and (min-width: 460px) {
+          .mines-layout { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 53px minmax(0, 1fr); }
+          .mines-board { grid-column: 1 / -1; }
+          .mines-menu { border: 0; }
+          .mines-score { border-bottom: 1px solid var(--os-border); }
+        }
+      `}</style>
+      <div className="mines-layout flex h-full min-h-0 flex-col" style={{ visibility: showHelp ? "hidden" : undefined }}>
       {/* ---------- menu bar ---------- */}
       <div
-        className="relative flex shrink-0 items-center gap-1 border-b px-1.5 py-1"
+        className="mines-menu relative flex shrink-0 flex-wrap items-center gap-1 border-b px-1.5 py-1"
         style={{ borderColor: "var(--os-border)" }}
       >
         <button
           type="button"
-          onPointerDown={(e: ReactPointerEvent<HTMLButtonElement>) => {
-            e.stopPropagation()
-            setMenuOpen((o) => !o)
-          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setMenuOpen((o) => !o)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className="rounded px-2.5 py-1 text-[12.5px] transition-colors"
+          className="min-h-[44px] rounded px-2.5 py-1 text-[12.5px] transition-colors"
           style={{ background: menuOpen ? "var(--os-active)" : "transparent", color: "var(--os-fg)" }}
         >
           Game
@@ -546,17 +587,17 @@ export function MinesweeperApp() {
           onClick={() => setFlagMode((f) => !f)}
           aria-pressed={flagMode}
           title="Tap-to-flag - useful without a right mouse button"
-          className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[12.5px] transition-colors"
+          className="flex min-h-[44px] items-center gap-1.5 rounded px-2.5 py-1 text-[12.5px] transition-colors"
           style={{
             background: flagMode ? "var(--os-accent-soft)" : "transparent",
             color: flagMode ? "var(--os-accent)" : "var(--os-muted)",
           }}
         >
           <FlagGlyph size={12} />
-          Flag mode
+          {flagMode ? "Flag mode: on" : "Flag mode: off"}
         </button>
 
-        <span className="ml-auto pr-2 text-[11.5px] tabular-nums" style={{ color: "var(--os-muted)" }}>
+        <span className="mines-level ml-auto pr-2 text-[11.5px] tabular-nums" style={{ color: "var(--os-muted)" }}>
           {LEVELS[state.level].label}
           {best !== undefined ? ` · best ${clock(best)}` : ""}
         </span>
@@ -565,7 +606,7 @@ export function MinesweeperApp() {
           <div
             role="menu"
             onPointerDown={(e: ReactPointerEvent<HTMLDivElement>) => e.stopPropagation()}
-            className="absolute left-1.5 top-[calc(100%+4px)] z-20 w-[210px] overflow-hidden rounded-lg py-1 shadow-2xl"
+            className="mines-dropdown absolute left-1.5 top-[calc(100%+4px)] z-20 w-[210px] overflow-hidden rounded-lg py-1 shadow-2xl"
             style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(20px)" }}
           >
             <MenuItem
@@ -590,6 +631,7 @@ export function MinesweeperApp() {
               />
             ))}
             <MenuSep />
+            <MenuItem label="How to play" onPick={() => { setMenuOpen(false); setShowHelp(true) }} />
             <MenuItem
               label="Marks (?)"
               checked={state.marksOn}
@@ -603,7 +645,7 @@ export function MinesweeperApp() {
       </div>
 
       {/* ---------- scoreboard ---------- */}
-      <div className="flex shrink-0 items-center justify-center px-3 pb-2 pt-3">
+      <div className="mines-score flex shrink-0 items-center justify-center px-3 pb-2 pt-3">
         <div
           className="flex w-full max-w-[420px] items-center justify-between gap-3 rounded-lg px-3 py-2"
           style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
@@ -614,7 +656,7 @@ export function MinesweeperApp() {
             onClick={() => newGame()}
             aria-label="New game"
             title="New game"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-transform active:scale-95"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-lg transition-transform active:scale-95"
             style={{ background: "var(--os-hover)", border: "1px solid var(--os-border)" }}
           >
             <Face mood={face} />
@@ -624,7 +666,7 @@ export function MinesweeperApp() {
       </div>
 
       {/* ---------- minefield ---------- */}
-      <div ref={fitRef} className="os-scroll relative min-h-0 flex-1 overflow-auto p-3">
+      <div ref={fitRef} className="mines-board os-scroll relative min-h-0 flex-1 overflow-auto p-3">
         {/* "safe center" keeps a board bigger than the window from being clipped
             out of reach; browsers that don't know it fall back to the classes. */}
         <div
@@ -632,9 +674,9 @@ export function MinesweeperApp() {
           style={{ justifyContent: "safe center", alignItems: "safe center" }}
         >
           <div
-            className="os-no-select rounded-lg p-1.5"
+            className="os-no-select shrink-0 rounded-lg p-1.5"
             style={{ background: "var(--os-surface)", border: "1px solid var(--os-border)" }}
-            onPointerDown={() => setPressing(true)}
+            onPointerDown={() => { if (appActive && !over) setPressing(true) }}
             onContextMenu={(e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault()
               e.stopPropagation()
@@ -675,7 +717,7 @@ export function MinesweeperApp() {
 
       {/* ---------- status bar ---------- */}
       <div
-        className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-[11.5px]"
+        className="mines-status flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-[11.5px]"
         style={{ borderColor: "var(--os-border)", color: "var(--os-muted)", background: "var(--os-card)" }}
       >
         <span style={{ color: over ? "var(--os-fg)" : "var(--os-muted)" }}>
@@ -684,13 +726,25 @@ export function MinesweeperApp() {
             : status === "lost"
               ? "Boom. Hit the face to try again."
               : status === "ready"
-                ? "Click any square to begin — the first one is always safe."
+                ? "Tap a square to begin — the first one is safe."
                 : `${state.opened} of ${total - mines} squares clear`}
+        </span>
+        <span className="w-full" aria-live="polite">
+          {!appActive ? "Paused — your board is saved here." : flagMode ? "Tap hidden squares to flag them. Tap a number to open its neighbours when its flags match." : "Tap to reveal. Turn Flag mode on to mark mines. Scroll to reach the whole board."}
         </span>
         <span className="ml-auto hidden sm:inline">
           Right-click flags · both buttons chord · arrows move · Enter opens · F flags
         </span>
       </div>
+      </div>
+      {showHelp && (
+        <div role="region" aria-label="How to play Minesweeper" className="os-scroll absolute inset-0 z-30 overflow-auto p-3" style={{ background: "var(--os-menu)" }}>
+          <button type="button" autoFocus onClick={() => setShowHelp(false)} className="min-h-[44px] rounded border px-3" style={{ borderColor: "var(--os-border)" }}>Back to game</button>
+          <p className="mt-2 text-sm">Tap to reveal. The first square is safe. Use Flag mode or right-click to mark mines. Tap a revealed number to open neighbours when its flags match.</p>
+          <p className="mt-2 text-sm">Scroll to reach the whole board. Arrow keys move, Enter opens, F flags, and F2 starts a new game.</p>
+          <p className="mt-2 text-sm">{LEVELS[state.level].label}{best !== undefined ? ` · best ${clock(best)}` : ""}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -786,9 +840,9 @@ function CellButton({
       onClick={() => onClick(index)}
       onContextMenu={(e) => onContextMenu(e, index)}
       className={`grid place-items-center outline-none tabular-nums ${
-        cell.revealed || over ? "" : "hover:brightness-125"
+        cell.revealed || over ? "" : "hover:brightness-125 active:brightness-75"
       } focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--os-accent)]`}
-      style={base}
+      style={{ ...base, touchAction: "manipulation", outline: tab ? "2px solid var(--os-accent)" : undefined, outlineOffset: -2 }}
     >
       {body}
     </button>
@@ -998,7 +1052,7 @@ function MenuItem({
       type="button"
       role="menuitem"
       onClick={onPick}
-      className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left text-[12.5px] transition-colors hover:bg-[var(--os-hover)]"
+      className="flex min-h-[44px] w-full items-center gap-2 px-2.5 py-[7px] text-left text-[12.5px] transition-colors hover:bg-[var(--os-hover)]"
       style={{ color: "var(--os-fg)" }}
     >
       <span className="w-3 shrink-0 text-center" style={{ color: "var(--os-accent)" }}>

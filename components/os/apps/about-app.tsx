@@ -1,9 +1,9 @@
 "use client"
 
 import { AtSign, Github, Linkedin, MapPin, Phone, Sparkles } from "lucide-react"
-import { PROFILE } from "@/lib/os/content"
+import { PROFILE, SHOW_PROJECTS } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
-import { Button, Card, Page, PageTitle, Row } from "./kit"
+import { Button, Card, Page, Row } from "./kit"
 
 export function AboutApp() {
   const open = useWM((s) => s.open)
@@ -21,11 +21,26 @@ export function AboutApp() {
           <p className="text-[14px]" style={{ color: "var(--os-accent-fg)" }}>
             {PROFILE.title}
           </p>
+          <p className="text-[13px] font-medium" style={{ color: "var(--os-fg)" }}>
+            {PROFILE.next}
+          </p>
           <p className="mt-1 text-[13px]" style={{ color: "var(--os-muted)" }}>
             {PROFILE.tagline}
           </p>
         </div>
       </div>
+
+      <Card className="mb-7 p-4">
+        <h2 className="text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
+          {PROFILE.role}
+        </h2>
+        <p className="mt-1 text-[13px] leading-relaxed" style={{ color: "var(--os-accent-fg)" }}>
+          {PROFILE.availability}
+        </p>
+        <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+          {PROFILE.learning}
+        </p>
+      </Card>
 
       <h2 className="mb-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
         What I bring
@@ -61,7 +76,7 @@ export function AboutApp() {
           Get in touch
         </Button>
         <Button onClick={() => open("resume")}>View resume</Button>
-        <Button onClick={() => open("projects")}>Browse projects</Button>
+        {SHOW_PROJECTS && <Button onClick={() => open("projects")}>Browse projects</Button>}
       </div>
     </Page>
   )

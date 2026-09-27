@@ -1,5 +1,7 @@
 "use client"
 
+import { useSessionWork } from "@/lib/os/session-work"
+
 import { useState } from "react"
 import { Check, Github, Inbox, Linkedin, Mail, Phone, Send, MapPin } from "lucide-react"
 import { PROFILE } from "@/lib/os/content"
@@ -10,6 +12,9 @@ export function ContactApp() {
   const [body, setBody] = useState("")
   const [from, setFrom] = useState("")
   const [sent, setSent] = useState(false)
+
+  // A mailto handoff cannot confirm delivery or saving; keep the draft protected.
+  useSessionWork(Boolean(subject || body || from))
 
   // No backend here, so composing hands off to the visitor's own mail client.
   const send = () => {

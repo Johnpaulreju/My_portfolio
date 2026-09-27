@@ -1,197 +1,81 @@
 # Portfolio OS
 
-A portfolio that boots.
+A portfolio that boots. Johnpaul K Reju’s interactive desktop becomes an Android-inspired home screen on phones. Profile information is also available as ordinary, readable pages.
 
-Instead of a page you scroll, this is a desktop operating system you use. It starts
-with a boot screen, lands on a Windows 11–style desktop, and every section of the
-portfolio — About, Projects, Experience, Skills — is an app you open in a real,
-draggable window. On a phone it becomes an Android home screen instead.
+**Software Engineer · Upcoming GenAI Engineer · Bangalore, India**
 
-**[Johnpaul K Reju](mailto:johnpaulreju2k@gmail.com)** · AI Engineer & Full-Stack Developer · Bangalore, India
+I build websites, React Native apps and AI tools. Next, I’m growing into a GenAI engineer by studying AI agents.
 
-![The desktop, with three windows open](docs/desktop.jpg)
+- [Portfolio OS](https://www.johnpaulreju.in)
+- [About](https://www.johnpaulreju.in/about)
+- [Resume](https://www.johnpaulreju.in/resume)
+- [Contact Johnpaul](mailto:johnpaulreju2k@gmail.com)
 
----
+These are the intended production URLs; new routes require the launch changes to be deployed.
 
-## The concept
+## Explore
 
-Most developer portfolios are a scrolling page with sections. They all read the same,
-and none of them actually *show* you anything — they tell you the person can build
-software, then ask you to take it on faith.
+The desktop includes draggable windows, a taskbar, Start menu, themes, and a local virtual filesystem. On phones (below 768px, or a phone held sideways), the phone shell provides an app grid, drawer, recents, and navigation controls. Browser storage keeps files and preferences on that browser; it is not cloud storage.
 
-So this one is the proof rather than the claim. A desktop environment is a genuinely
-hard UI problem: overlapping windows, z-order, drag and resize, focus, a filesystem,
-context menus, two completely different input models. Building one that feels right
-*is* the portfolio. The content lives inside it as apps, so reading about the work and
-experiencing the work are the same act.
+| App | Content |
+| --- | --- |
+| About, Skills, Experience | Shared profile, tools, and attributed work and education history |
+| Projects | Coming soon. A few projects are cooking in the CPU. |
+| Lab | Coming soon. Small experiments are still cooking. |
+| Contact | Hands an email draft to the visitor’s own mail app |
+| Resume | Resume viewer with browser printing; `/resume` provides a readable, printable page |
+| Nimbus, Vantage | Original browser and search interfaces for exploring the portfolio |
+| Notepad, Docs, Files | Local notes, documents, and virtual filesystem tools |
+| Settings, Terminal, This PC, Recycle Bin | Portfolio OS controls and utilities |
+| Media Player, JP Tube | Local players with generated coding demos; JP Tube has an empty published catalogue and an explicit demo mode |
+| Minesweeper, Solitaire, Ridgeline | Games within the OS |
 
-Two rules kept it honest:
+Projects and Lab do not publish a personal project catalogue. Employer work stays attributed in the work history. A public GitHub profile link is not an ownership claim over every repository.
 
-1. **Nothing is a picture of itself.** The windows really drag and resize. The
-   filesystem really stores files, and they survive a reload. Notepad really saves.
-   If something looks interactive, it is.
-2. **Nothing is borrowed.** No Microsoft wallpapers, logos, or icon assets — every
-   piece of artwork here is original CSS and SVG written for this project.
+## Architecture
 
----
-
-## What's in it
-
-### Desktop — Windows 11 (≥ 768px)
-
-| | |
-|---|---|
-| **Boot** | Staged boot sequence with an orbiting-dot spinner; skipped entirely for `prefers-reduced-motion` |
-| **Windows** | Drag by title bar · resize from all 8 edges · minimize / maximize / restore / close · click-to-raise z-order · double-click title to maximize |
-| **Snap** | Drag to the top to maximize, to either side to fill half — with a live translucent preview before you drop |
-| **Taskbar** | Centered, acrylic, live clock and date, system tray, per-app running indicators (the focused app gets a wider pill) |
-| **Start menu** | Searches apps *and* your files, pinned grid, Recommended, power button that reboots the whole thing |
-| **Right-click** | Desktop (New ▸ Folder / Text Document, Refresh, theme, Personalise), files (Open / Rename / Delete), taskbar, and app icons |
-| **Files** | Create, rename inline (`F2`), delete (`Del`), nest folders — persisted to `localStorage`, so what you make is still there next visit |
-| **Theme** | Real light/dark switch — wallpaper, chrome, taskbar and every app follow it |
-
-![Right-click → New → Folder or Text Document](docs/context-menu.jpg)
-
-### Mobile — Android (< 768px)
-
-A desktop metaphor is miserable on a phone, so below 768px the whole shell is
-replaced rather than squeezed: status bar, clock widget, app grid, dock, swipe-up
-app drawer with search, recents, and a back / home / recents nav bar. Apps open
-fullscreen and reflow — the Projects explorer drops its sidebar for filter chips.
-
-<p align="center">
-  <img src="docs/mobile-home.jpg" width="42%" alt="Android home screen" />
-  &nbsp;&nbsp;
-  <img src="docs/mobile-app.jpg" width="42%" alt="Projects app on mobile" />
-</p>
-
-### The 13 apps
-
-| App | What it is |
-|---|---|
-| **About Me** | Profile, what I bring, contact details |
-| **Projects** | File-Explorer-style browser — categories, search, grid/list views, details pane |
-| **Experience** | Work and education timeline |
-| **Skills** | Task-Manager-style meters that animate on open |
-| **Awards** · **Lab** | Certifications and wins · experiments in progress |
-| **Contact** | A Mail client; composing hands off to your own mail app |
-| **Chrome** | Tab strip, omnibox, and in-app GitHub / LinkedIn / portfolio pages |
-| **Notepad** | Opens and saves real files · `Ctrl+S` · word wrap · Ln/Col/word/char status bar |
-| **Files** | Explorer over the same filesystem — breadcrumbs, New, rename, delete |
-| **Settings** | Theme picker with live previews, storage reset |
-| **Terminal** | `help` lists 12 commands — `projects`, `skills`, `ls`, `cat`, `open` and more — with arrow-key history |
-| **Resume** | A document in a PDF-viewer chrome; prints to real PDF |
-
-![Start menu](docs/start-menu.jpg)
-
----
-
-## How it was made
-
-### Stack
-
-Deliberately small. Five runtime dependencies, no UI kit, no animation library.
-
-```
-Next.js 14 (App Router)  ·  React 18  ·  TypeScript  ·  Tailwind CSS 3
-zustand    — window + filesystem state
-lucide-react — icons
+```text
+app/page.tsx                    server profile fallback + PortfolioShell
+components/os/portfolio-shell   client hydration, power state, desktop/phone selection
+components/os/desktop/          desktop windows, taskbar, menus
+components/os/mobile/           phone shell
+components/os/apps/             shared interactive apps
+components/site/               readable profile, links, scoped styling
+app/about/ + app/resume/        server-rendered content routes
+lib/os/content.ts              shared profile, skills, and timeline
+lib/os/app-meta.ts              app registry
+lib/site.ts                    canonical origin, page metadata, profile helpers
 ```
 
-Everything else — window chrome, context menus, the scheduler, the wallpaper — is
-written from scratch. There is no `three`, no `framer-motion`, no Radix.
+The server home passes visible profile content to `PortfolioShell`. The shell renders it during initial hydration; the standalone pages remain available without JavaScript.
 
-### Architecture
+The stack is Next.js 15, React 19, TypeScript, Tailwind CSS, Zustand, and Lucide. The existing `--os-*` tokens style both the OS and readable pages. App tiles use pinned upstream Lucide SVGs, bundled copies, and built-in glyph recovery. [Asset sources and licenses](public/brand/README.md).
 
-The whole thing is one route. Two shells render from one set of apps:
-
-```
-app/page.tsx                   picks a shell from a media query, after boot
-│
-├── components/os/desktop/     Windows 11 shell
-│     desktop-shell            wallpaper + icons + windows + taskbar
-│     window-frame             drag, 8-way resize, snap, title bar
-│     taskbar · start-menu · desktop-icons · context-menu
-│
-├── components/os/mobile/      Android shell
-│     phone-shell              status bar, home, drawer, recents, nav bar
-│
-├── components/os/app-host     maps an AppId to its component
-├── components/os/apps/        the 13 apps — shared by BOTH shells
-│
-└── lib/os/
-      content.ts               all portfolio data, single source of truth
-      wm-store.ts              window manager (zustand)
-      fs-store.ts              virtual filesystem (zustand + localStorage)
-      app-meta.ts              app registry: title, icon, size, pinned
-```
-
-Three decisions did most of the work:
-
-**Content is data, not markup.** Every project, skill and timeline entry lives in
-`lib/os/content.ts`. The apps, the Terminal, the Resume and the in-app GitHub page
-all render from it, so a fact is written once and can never drift between views.
-
-**Apps don't know which shell they're in.** An app is just a component. The desktop
-wraps it in a `WindowFrame`; the phone wraps it in a fullscreen surface and hands it
-a stub window object. Adding an app means one file plus one registry entry, and it
-works in both places.
-
-**Gestures stay local until they finish.** Dragging a window updates local component
-state and only commits to the store on release. Nothing else re-renders mid-drag,
-which is what keeps it smooth with several windows open.
-
-### Theming
-
-One `data-theme` attribute on the root swaps a set of CSS custom properties
-(`--os-window`, `--os-chrome`, `--os-accent`, …). Components reference the variables,
-never the colours, so light mode was mostly free.
-
-### The wallpaper
-
-Layered translucent SVG ribbons around a soft core, blurred with `feGaussianBlur`.
-It took three passes — the first read as a giant daisy, the second as a starburst —
-before it settled into something abstract enough to sit behind icons. No image file,
-so it costs nothing to load and scales to any viewport.
-
----
-
-## Running it
+## Run and check
 
 ```bash
-pnpm install
-pnpm dev        # http://localhost:3000
-```
-
-```bash
-pnpm build      # production build (type errors and lint failures fail the build)
-pnpm typecheck  # tsc --noEmit
+pnpm install --frozen-lockfile
+pnpm dev
+pnpm typecheck
 pnpm lint
+node doc/check-seo.cjs
+pnpm build
 ```
 
-> Resize the browser below 768px to switch between the two shells.
+`doc/check-seo.cjs` checks the SEO data, rendered profile content, icon recovery transitions, and asset mappings. It does not replace an integrated build or browser QA.
 
----
+Copy `.env.example` only if you need to set `NEXT_PUBLIC_SITE_URL`. It must be an HTTPS origin with no credentials, path, query, or fragment. Unset uses the existing Vercel origin above; invalid values fail validation. Change it only after confirming the new domain belongs to you and is routed correctly.
 
-## Try these
+## Search and launch
 
-The fastest way to see it's real:
+The search layer includes unique page metadata, self-canonicals, Person/WebSite JSON-LD, a generated PNG share card, robots, a sitemap, and a Markdown profile. The sitemap includes only `/`, `/about`, and `/resume`. `llms.txt` is a supplementary guide, not a Google requirement or a ranking promise.
 
-- **Right-click the wallpaper** → New → Folder. Name it. Reload the page — it's still there.
-- **Double-click `Readme.txt`**, type something, hit `Ctrl+S`.
-- **Drag a window to the left edge** and watch the snap preview appear before you drop.
-- **Open Terminal** and run `help`, then `skills`.
-- **Click the tray clock area** (wifi/volume/battery) to flip the whole OS to light mode.
-- **Open two windows** and click between them — watch the taskbar indicators change.
+Use the [launch checklist](doc/launch-checklist.md) for integration checks, production URL inspection, and the owner’s Google Search Console / Bing verification and sitemap submission steps. Those account steps are not completed by adding files to this repository.
 
----
+## Screenshots
 
-## Notes
+The files in `docs/` were refreshed on 27 September 2026 from this local content-fix build: desktop, Start, context menu, phone home and the explicit JP Tube demo. They show the current empty published catalogue, not a deployed-production claim. Browser QA used Chrome with emulated phone dimensions. The lead must run final integrated checks.
 
-Known gaps, listed honestly: browser back/forward are decorative, recents shows
-placeholder thumbnails rather than live previews, desktop icons can't be dragged to
-new positions, and mobile has no long-press menu yet.
+JP Tube’s two silent animations are generated code art, not personal recordings or project walkthroughs. Play/pause, English captions, queue/autoplay, local likes/dislikes, saves and comments can be tried without an account. This demo state lasts only while the Tube window stays open and is cleared by closing or reloading; nothing is posted. The separate Media Player uses the same first demo asset. Historical files under `reports/` and `research_notes/` are preserved with supersession notes; old ownership assumptions and launch suggestions there are not current claims.
 
-Built as a portfolio for Johnpaul K Reju.
-Microsoft, Windows, Android and Chrome are trademarks of their respective owners;
-this project imitates their interfaces from scratch and ships none of their assets.
+See [how it works](doc/how-it-works.md) for the implementation notes. Microsoft, Windows, and Android names refer to interface inspiration; Nimbus and Vantage are original portfolio apps.

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, BatteryFull, ChevronUp, Plane, Search, Volume1, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
+import { Bell, ChevronUp, Plane, Search, Volume1, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
 import { PINNED_APPS, APP_META } from "@/lib/os/app-meta"
 import { useWM } from "@/lib/os/wm-store"
 import { useSystem } from "@/lib/os/system-store"
@@ -17,7 +17,7 @@ export function Taskbar({
 }: {
   openMenu: (x: number, y: number, items: MenuItem[]) => void
 }) {
-  const { windows, focusedId, open, toggleMinimize, close, startOpen, setStartOpen, minimizeAll } = useWM()
+  const { windows, focusedId, open, focus, toggleMinimize, close, startOpen, setStartOpen, minimizeAll } = useWM()
 
   // Pinned apps first, then any running app that isn't pinned.
   const pinnedIds = PINNED_APPS.map((a) => a.id)
@@ -44,12 +44,12 @@ export function Taskbar({
       {/* Left spacer keeps the app cluster optically centered against the tray. */}
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1">
+      <div className="os-scroll flex min-w-0 items-center gap-1 overflow-x-auto">
         <button
           type="button"
           aria-label="Start"
           onClick={() => setStartOpen(!startOpen)}
-          className={`grid h-10 w-10 place-items-center rounded-md transition-colors ${
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-md transition-colors ${
             startOpen ? "bg-[var(--os-hover)]" : "hover:bg-[var(--os-hover)]"
           }`}
         >
@@ -60,22 +60,24 @@ export function Taskbar({
           type="button"
           aria-label="Search"
           onClick={() => setStartOpen(true)}
-          className="grid h-10 w-10 place-items-center rounded-md transition-colors hover:bg-[var(--os-hover)]"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-md transition-colors hover:bg-[var(--os-hover)]"
         >
           <Search size={18} style={{ color: "var(--os-fg)" }} />
         </button>
 
         {slots.map((appId) => {
-          const wins = windows.filter((w) => w.appId === appId)
+          const wins = windows.filter((w) => w.appId === appId).sort((a, b) => b.z - a.z)
+          const target = wins.find((w) => w.id === focusedId && !w.minimized) ?? wins.find((w) => !w.minimized) ?? wins[0]
           const running = wins.length > 0
           const isFocused = wins.some((w) => w.id === focusedId && !w.minimized)
           return (
             <button
               key={appId}
               type="button"
+              data-task-app={appId}
               title={APP_META[appId].title}
               aria-label={APP_META[appId].title}
-              onClick={() => (running ? toggleMinimize(wins[wins.length - 1].id) : open(appId))}
+              onClick={() => (running ? toggleMinimize(target.id) : open(appId))}
               onContextMenu={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -84,16 +86,18 @@ export function Taskbar({
                   ...(running
                     ? ([
                         { kind: "sep" },
+                        ...wins.map((win) => ({ label: `${win.minimized ? "Restore" : "Focus"}: ${win.title}`, onSelect: () => focus(win.id) })),
+                        { kind: "sep" },
                         {
                           label: wins.length > 1 ? `Close all ${wins.length} windows` : "Close window",
                           danger: true,
-                          onSelect: () => wins.forEach((w) => close(w.id)),
+                          onSelect: () => { for (const win of wins) { if (!close(win.id)) break } },
                         },
                       ] as MenuItem[])
                     : []),
                 ])
               }}
-              className={`relative grid h-10 w-10 place-items-center rounded-md transition-colors ${
+              className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-md transition-colors ${
                 isFocused ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
               }`}
             >
@@ -129,13 +133,13 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
     return () => clearInterval(t)
   }, [])
 
-  const netLabel = sys.airplane
+  const netLabel = "Demo network: " + (sys.airplane
     ? "Airplane mode is on"
     : !sys.wifiOn
       ? "Not connected"
       : sys.conn === "connecting"
         ? "Connecting…"
-        : `${sys.ssid} — connected`
+        : `${sys.ssid} — connected`)
 
   return (
     <div className="flex items-center gap-0.5">
@@ -180,11 +184,13 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
         ) : (
           <Volume2 size={15} />
         )}
-        <BatteryFull size={16} />
+        <span className="text-[9px]">Demo</span>
       </button>
 
       <button
         type="button"
+        aria-label="Open calendar and notifications"
+        data-notif-trigger
         onClick={() => setNotifOpen(!notifOpen)}
         aria-haspopup="dialog"
         aria-expanded={notifOpen}
@@ -204,6 +210,7 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
 
       <button
         type="button"
+        data-notif-trigger
         aria-label={unread ? `Notifications, ${unread} new` : "Notifications"}
         onClick={() => setNotifOpen(!notifOpen)}
         className="relative grid h-9 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"

@@ -8,12 +8,13 @@ import { useWM } from "@/lib/os/wm-store"
 import { PROFILE } from "@/lib/os/content"
 import { BootScreen, PaneMark } from "@/components/os/boot-screen"
 import { Wallpaper } from "@/components/os/wallpaper"
+import { PhoneLockScreen, PhoneSleepScreen, usePhoneViewport } from "@/components/os/mobile/shade/phone-lock"
 
-export function PowerOverlay() {
+export function PowerOverlay({ entry = false, onStart }: { entry?: boolean; onStart?: () => void }) {
   const state = usePower((s) => s.state)
 
   if (state === "running") return null
-  if (state === "off") return <PowerScreen />
+  if (state === "off") return <PowerScreen entry={entry} onStart={onStart} />
   if (state === "booting") return <BootScreen onDone={() => usePower.getState().go("running")} />
   if (state === "restarting") return <TransitionScreen caption="Restarting" />
   if (state === "shuttingDown") return <TransitionScreen caption="Shutting down" />
@@ -22,41 +23,33 @@ export function PowerOverlay() {
 }
 
 /** The `off` state: one click buys fullscreen AND audio, which no page load can. */
-function PowerScreen() {
+function PowerScreen({ entry, onStart }: { entry: boolean; onStart?: () => void }) {
   const { powerOn, wantFullscreen, setWantFullscreen } = usePower()
   const { supported, enter } = useFullscreen()
 
   const start = () => {
     // Order matters: unlock audio first (inside powerOn), then ask for fullscreen,
     // because requestFullscreen is treated as consuming the user activation.
+    onStart?.()
     powerOn()
     if (wantFullscreen && supported) enter()
   }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault()
-        start()
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  })
 
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-[#05070f]">
+    <div data-power-entry={entry || undefined} className={`${entry ? "relative min-h-[100svh] py-10" : "fixed inset-0 z-[9999]"} grid place-items-center bg-[#05070f]`}>
       <div className="flex flex-col items-center gap-8 px-6 text-center">
         <PaneMark size={56} />
         <div>
           <h1 className="text-[26px] font-light tracking-tight text-white">{PROFILE.name}</h1>
-          <p className="mt-1 text-[13.5px] text-white/60">{PROFILE.title}</p>
+          <p className="mt-1 text-[14px] text-white/80">{PROFILE.title}</p>
+          <p className="mt-0.5 text-[13px] text-sky-200/80">{PROFILE.next}</p>
         </div>
 
         <button
           type="button"
           onClick={start}
-          autoFocus
+          autoFocus={!entry}
           aria-label="Power on"
           className="group relative grid h-24 w-24 place-items-center rounded-full transition-transform active:scale-95"
           style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.18)" }}
@@ -71,8 +64,8 @@ function PowerScreen() {
 
         <p className="text-[13px] text-white/70">Press to start</p>
 
-        {supported && (
-          <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-white/55">
+        <div className="h-5">
+          <label style={{ visibility: supported ? "visible" : "hidden" }} className="flex cursor-pointer items-center gap-2 text-[12.5px] text-white/55">
             <input
               type="checkbox"
               checked={wantFullscreen}
@@ -81,11 +74,12 @@ function PowerScreen() {
             />
             Open in full screen
           </label>
-        )}
+        </div>
 
-        <p className="max-w-[320px] text-[11.5px] leading-relaxed text-white/35">
-          Your browser needs one click before it will allow sound or full screen. This is that click.
+        <p className="max-w-[320px] text-[11.5px] leading-relaxed text-white/60">
+          Press the power button to explore the portfolio, with optional sound and full screen.
         </p>
+        {entry && <a href="#readable-portfolio" className="text-[13px] text-white/70 underline underline-offset-4">Read the portfolio</a>}
       </div>
     </div>
   )
@@ -102,8 +96,12 @@ function TransitionScreen({ caption }: { caption: string }) {
   )
 }
 
-/** Sleep is a black screen that wakes to the lock screen, as Windows does. */
+/** Sleep is a black screen that wakes to the lock screen, as Windows does. Phones show a dim clock. */
 function SleepScreen() {
+  return usePhoneViewport() ? <PhoneSleepScreen /> : <DesktopSleepScreen />
+}
+
+function DesktopSleepScreen() {
   const go = usePower((s) => s.go)
   useEffect(() => {
     const wake = () => go("locked")
@@ -118,6 +116,10 @@ function SleepScreen() {
 }
 
 function LockScreen() {
+  return usePhoneViewport() ? <PhoneLockScreen /> : <DesktopLockScreen />
+}
+
+function DesktopLockScreen() {
   const unlock = usePower((s) => s.unlock)
   const theme = useWM((s) => s.theme)
   const [revealed, setRevealed] = useState(false)

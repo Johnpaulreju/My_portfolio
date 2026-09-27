@@ -10,7 +10,7 @@ import {
 
 import { AppIcon } from "@/components/os/app-icon"
 import { ALL_APPS } from "@/lib/os/app-meta"
-import { PROFILE, PROJECTS, TIMELINE } from "@/lib/os/content"
+import { PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, TIMELINE } from "@/lib/os/content"
 import { useFS } from "@/lib/os/fs-store"
 import { useNotify } from "@/lib/os/notify-store"
 import { playSfx, type SfxName } from "@/lib/os/sfx"
@@ -56,8 +56,8 @@ type Item = {
 
 const SHELL: Record<ShellKey, { label: string; icon: LucideIcon; blurb: string }> = {
   documents: { label: "Documents", icon: FileText, blurb: "Every text and doc file on this PC, wherever it lives." },
-  downloads: { label: "Downloads", icon: Download, blurb: "Three things that arrived with the machine." },
-  pictures: { label: "Pictures", icon: ImageIcon, blurb: "One frame, grabbed from the intro reel." },
+  downloads: { label: "Downloads", icon: Download, blurb: "A résumé shortcut and the desktop's sample downloads." },
+  pictures: { label: "Pictures", icon: ImageIcon, blurb: "A poster from the bundled media player demo." },
   music: { label: "Music", icon: Music2, blurb: "The system sounds. Double-click one and it really plays." },
   videos: { label: "Videos", icon: Film, blurb: "Playable in the Media Player app." },
 }
@@ -556,14 +556,18 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
         label: "Local Disk (C:)",
         total: 512,
         used: cUsed,
-        note: `3.2 GB per file or folder on this desktop (${stats.alive.length}), 1 MB per character inside them (${stats.chars.toLocaleString("en-US")}), 12 GB per shipped project (${PROJECTS.length}).`,
+        note:
+          `3.2 GB per file or folder on this desktop (${stats.alive.length}), 1 MB per character inside them (${stats.chars.toLocaleString("en-US")})` +
+          (SHOW_PROJECTS ? `, 12 GB per published project (${PROJECTS.length}).` : `.`),
       },
       {
         id: "P",
         label: "Portfolio (P:)",
         total: 128,
         used: pUsed,
-        note: `9 GB per shipped project (${PROJECTS.length}) and 2 GB per chapter of the timeline (${TIMELINE.length}). Nearly full, which is the point.`,
+        note: SHOW_PROJECTS
+          ? `9 GB per published project (${PROJECTS.length}) and 2 GB per chapter of the timeline (${TIMELINE.length}).`
+          : PORTFOLIO_STATUS.projects.body,
       },
     ]
   }, [stats])
@@ -621,7 +625,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
 
   const sizeOf = useCallback((n: FSNode) => {
     if (n.kind === "folder") return undefined
-    if (n.kind === "video") return "18.4 MB"
+    if (n.kind === "video") return undefined
     if (n.kind === "zip") return fmtBytes((n.zipOf?.length ?? 0) * 1_200)
     if (n.kind === "app-link") return undefined
     return fmtBytes(n.body?.length ?? 0)
@@ -653,15 +657,15 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
     [byId, glyphFor, openNode, sizeOf, typeOf],
   )
 
-  const introVideoId = useMemo(
-    () => stats.alive.find((n) => n.kind === "video")?.id,
+  const demoVideo = useMemo(
+    () => stats.alive.find((n) => n.kind === "video"),
     [stats.alive],
   )
 
-  const playIntro = useCallback(() => {
-    if (introVideoId) openWin("player", { fileId: introVideoId }, "Meet Johnpaul.mp4")
+  const playDemo = useCallback(() => {
+    if (demoVideo) openWin("player", { fileId: demoVideo.id }, demoVideo.name)
     else openWin("player")
-  }, [introVideoId, openWin])
+  }, [demoVideo, openWin])
 
   /* ----------------------------------------------------------------- items */
 
@@ -696,32 +700,34 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
             {
               id: "pic-poster",
               name: "intro-poster.jpg",
-              sub: "1280 × 720",
+              sub: "Bundled demo poster",
               type: "JPG image",
-              size: "96.0 KB",
-              glyph: <Thumb src="/media/intro-poster.jpg" alt="Frame from the intro video" width={72} />,
-              onOpen: playIntro,
+              glyph: <Thumb src="/media/intro-poster.jpg" alt="Bundled media player demo poster" width={72} />,
+              onOpen: playDemo,
             },
           ]
         return [
           {
             id: "dl-resume",
-            name: "Resume.pdf",
-            sub: `${PROFILE.name} — ${PROFILE.title}`,
-            type: "PDF document",
-            size: "318 KB",
+            name: "Résumé",
+            sub: "Open résumé view · Print / Save as PDF",
+            type: "Résumé view",
             glyph: <Tile icon={FileText} />,
             onOpen: () => openWin("resume"),
           },
-          {
-            id: "dl-archive",
-            name: "portfolio-projects.zip",
-            sub: `${PROJECTS.length} projects, unextracted`,
-            type: "Compressed folder",
-            size: "104 MB",
-            glyph: <Tile icon={FileArchive} />,
-            onOpen: () => openWin("projects"),
-          },
+          ...(SHOW_PROJECTS
+            ? [
+                {
+                  id: "dl-archive",
+                  name: "portfolio-projects.zip",
+                  sub: `${PROJECTS.length} projects, unextracted`,
+                  type: "Compressed folder",
+                  size: "104 MB",
+                  glyph: <Tile icon={FileArchive} />,
+                  onOpen: () => openWin("projects"),
+                },
+              ]
+            : []),
           {
             id: "dl-setup",
             name: "PortfolioOS-11-Setup.exe",
@@ -813,9 +819,8 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
           .map((n) => ({
             id: n.id,
             name: n.name,
-            sub: "20 s · 1280 × 720",
+            sub: "Open in Media Player",
             type: "MP4 video",
-            size: "18.4 MB",
             modified: n.modifiedAt,
             glyph: <Thumb src="/media/intro-poster.jpg" alt={n.name} width={148} />,
             onOpen: () => openWin("player", { fileId: n.id }, n.name),
@@ -823,11 +828,10 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
         media.push({
           id: "gal-poster",
           name: "intro-poster.jpg",
-          sub: "Cover frame",
+          sub: "Bundled demo poster",
           type: "JPG image",
-          size: "96.0 KB",
-          glyph: <Thumb src="/media/intro-poster.jpg" alt="Cover frame" width={148} />,
-          onOpen: playIntro,
+          glyph: <Thumb src="/media/intro-poster.jpg" alt="Bundled media player demo poster" width={148} />,
+          onOpen: playDemo,
         })
         return media
       }
@@ -873,7 +877,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
       default:
         return []
     }
-  }, [route, stats, fsItem, openWin, push, go, denied, playIntro, conn])
+  }, [route, stats, fsItem, openWin, push, go, denied, playDemo, conn])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -908,7 +912,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
       [
         `Device name        ${DEVICE_NAME}`,
         `Owner              ${PROFILE.name}`,
-        `Processor          AI Engineer @ 3.2GHz`,
+        `Owner role         ${PROFILE.headline}`,
         `Installed RAM      16.0 GB (11.4 GB usable)`,
         `System type        64-bit operating system, x64-based processor`,
         `Edition            Portfolio OS 11 Pro`,
@@ -1131,7 +1135,9 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
                   empty={
                     query.trim()
                       ? `No items match “${query.trim()}”.`
-                      : "This folder is empty."
+                      : route.view === "drive" && route.id === "P" && (!SHOW_PROJECTS || PROJECTS.length === 0)
+                        ? `${PORTFOLIO_STATUS.projects.title}. ${PORTFOLIO_STATUS.projects.body}`
+                        : "This folder is empty."
                   }
                 />
               )}
@@ -1299,7 +1305,7 @@ function HomeView({
             className="mt-3.5 grid gap-3 border-t pt-3.5"
             style={{ borderColor: "var(--os-border)", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}
           >
-            <MiniStat icon={Cpu} label="Processor" value="AI Engineer @ 3.2GHz" />
+            <MiniStat icon={Cpu} label="Owner role" value={PROFILE.title} />
             <MiniStat icon={MemoryStick} label="Installed RAM" value="16.0 GB (11.4 usable)" />
             <MiniStat
               icon={HardDrive}
@@ -1388,7 +1394,7 @@ function SystemView({
               {DEVICE_NAME}
             </p>
             <p className="text-[12.5px]" style={{ color: "var(--os-muted)" }}>
-              {PROFILE.name} — {PROFILE.title}
+              {PROFILE.name} — {PROFILE.headline}
             </p>
           </div>
           <div className="flex gap-2">
@@ -1409,7 +1415,9 @@ function SystemView({
           <Row icon={<Monitor size={15} />} label="Device name" value={DEVICE_NAME} />
           <Row label="Full device name" value={`${DEVICE_NAME}.reju.local`} />
           <Row label="Owner" value={PROFILE.name} />
-          <Row icon={<Cpu size={15} />} label="Processor" value={`AI Engineer @ 3.2GHz, ${PROJECTS.length} cores`} />
+          <Row icon={<Cpu size={15} />} label="Owner role" value={PROFILE.headline} />
+          <Row label="Learning" value={PROFILE.learning} />
+          <Row label="Availability" value={PROFILE.availability} />
           <Row icon={<MemoryStick size={15} />} label="Installed RAM" value="16.0 GB (11.4 GB usable)" />
           <Row label="Device ID" value="JR-2024-0C7A-1B93-AI11" />
           <Row label="Product ID" value="00330-80000-00000-JPR11" />

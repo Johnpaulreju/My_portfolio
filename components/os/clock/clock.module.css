@@ -1,0 +1,53 @@
+/* Clock motion. Transform and opacity only; the global reduced-motion rule
+   collapses every animation here to its resting frame. */
+
+@keyframes ripple {
+  from { opacity: 0.5; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.85); }
+}
+
+@keyframes shake {
+  0%, 50%, 100% { transform: rotate(0); }
+  10%, 30% { transform: rotate(-14deg); }
+  20%, 40% { transform: rotate(14deg); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Resting state is invisible, so reduced motion shows no stray ring. */
+.ripple {
+  opacity: 0;
+  animation: ripple 1.8s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+.rippleLate {
+  animation-delay: 0.9s;
+}
+
+.shake {
+  animation: shake 1.2s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+
+.rise {
+  animation: rise 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pop {
+  animation: pop 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.backdrop::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+.phoneBackdrop::backdrop {
+  background: #000;
+}

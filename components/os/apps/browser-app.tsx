@@ -52,7 +52,7 @@ import {
   type AssistantTurn,
 } from "@/lib/os/assistant"
 import { assistantInvoke } from "@/lib/os/capabilities"
-import { PROFILE } from "@/lib/os/content"
+import { PROFILE, SHOW_PROJECTS } from "@/lib/os/content"
 import { useFS } from "@/lib/os/fs-store"
 import { highlight, search, type ResultKind, type SearchResult } from "@/lib/os/search"
 import { useSystem, type NetStatus } from "@/lib/os/system-store"
@@ -70,10 +70,9 @@ import type { AppId, FSNode, WindowInstance } from "@/lib/os/types"
  *          ever. Works with the cable unplugged.
  *   JP     lib/os/assistant.ts. Grounded in lib/os/content.ts and nothing
  *          else; when the profile doesn't say, the answer says so.
- *   WEB    Real HTTP, client-side, no proxy and no key, to the only two
- *          origins that actually allow it: the Wikipedia REST APIs and the
- *          GitHub REST API. Nothing here is mocked. If a request fails, the
- *          failure is what gets rendered.
+ *   WEB    Real HTTP, client-side, no proxy and no key, to the Wikipedia
+ *          REST APIs. Other websites open externally. If a request fails,
+ *          the failure is what gets rendered.
  *
  * Nothing in this file touches a store's mutators directly — every state
  * change goes through lib/os/actions.ts, and anything driven by a typed
@@ -95,7 +94,6 @@ const GITHUB_USER = PROFILE.github.split("/").filter(Boolean).pop() ?? ""
 
 const WIKI_SEARCH = "https://en.wikipedia.org/w/rest.php/v1/search/page"
 const WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary"
-const GH_API = "https://api.github.com"
 
 /** One typing pause before a real request leaves the machine. */
 const DEBOUNCE_MS = 300
@@ -109,7 +107,7 @@ type Mode = "local" | "jp" | "web"
 const MODES: { id: Mode; label: string; blurb: string }[] = [
   { id: "local", label: "Local", blurb: "Apps, files and portfolio content on this machine. Never needs a network." },
   { id: "jp", label: "JP", blurb: "Ask about Johnpaul. Answered only from what he has published." },
-  { id: "web", label: "Web", blurb: "Live results from Wikipedia and the GitHub API. Needs a connection." },
+  { id: "web", label: "Web", blurb: "Live results from Wikipedia. Other websites open externally. Needs a connection." },
 ]
 
 type View =
@@ -282,9 +280,9 @@ function interpret(raw: string, mode: Mode, webAvailable: boolean): Interp | nul
 /* ================================================================== *
  * Live web data
  *
- * Two origins, both verified CORS-open and key-free from a browser. Every
- * response is shape-checked before it is rendered; nothing is invented to
- * fill a gap, and a failed request renders as a failure.
+ * Wikipedia requests are key-free and sent directly from the browser.
+ * Every response is shape-checked before rendering, and a failed request
+ * renders as a failure.
  * ================================================================== */
 
 type Remote<T> =
@@ -446,137 +444,6 @@ function useWikiSummary(title: string | null, enabled: boolean) {
       })
     return () => ac.abort()
   }, [title, enabled, nonce])
-
-  return [state, retry] as const
-}
-
-/* --------------------------------------------------------------- github */
-
-type GhUser = {
-  login: string
-  name: string | null
-  bio: string | null
-  location: string | null
-  company: string | null
-  publicRepos: number
-  followers: number
-  following: number
-  createdAt: string
-  htmlUrl: string
-}
-
-type GhRepo = {
-  id: number
-  name: string
-  description: string | null
-  language: string | null
-  stars: number
-  forks: number
-  pushedAt: string
-  htmlUrl: string
-  fork: boolean
-}
-
-type GhData = { user: GhUser; repos: GhRepo[]; remaining: number | null }
-
-const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null)
-const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0)
-
-function parseGhUser(json: unknown): GhUser | null {
-  if (!json || typeof json !== "object") return null
-  const j = json as Record<string, unknown>
-  if (typeof j.login !== "string") return null
-  return {
-    login: j.login,
-    name: str(j.name),
-    bio: str(j.bio),
-    location: str(j.location),
-    company: str(j.company),
-    publicRepos: num(j.public_repos),
-    followers: num(j.followers),
-    following: num(j.following),
-    createdAt: str(j.created_at) ?? "",
-    htmlUrl: str(j.html_url) ?? `https://github.com/${j.login}`,
-  }
-}
-
-function parseGhRepos(json: unknown): GhRepo[] {
-  if (!Array.isArray(json)) return []
-  const out: GhRepo[] = []
-  for (const raw of json) {
-    if (!raw || typeof raw !== "object") continue
-    const r = raw as Record<string, unknown>
-    if (typeof r.name !== "string") continue
-    out.push({
-      id: num(r.id),
-      name: r.name,
-      description: str(r.description),
-      language: str(r.language),
-      stars: num(r.stargazers_count),
-      forks: num(r.forks_count),
-      pushedAt: str(r.pushed_at) ?? "",
-      htmlUrl: str(r.html_url) ?? "",
-      fork: r.fork === true,
-    })
-  }
-  return out
-}
-
-const readRemaining = (res: Response): number | null => {
-  const v = res.headers.get("x-ratelimit-remaining")
-  if (v === null) return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-const RATE_LIMITED =
-  "GitHub allows 60 unauthenticated API requests an hour per IP address, and this one has used them all. " +
-  "Nimbus ships no API key, so the honest move is to show nothing until the window resets — the profile is one click away in your own browser."
-
-function useGithub(enabled: boolean) {
-  const [state, setState] = useState<Remote<GhData>>({ s: "idle" })
-  const [nonce, setNonce] = useState(0)
-  const retry = useCallback(() => setNonce((n) => n + 1), [])
-
-  useEffect(() => {
-    if (!enabled || !GITHUB_USER) {
-      setState({ s: "idle" })
-      return
-    }
-    const ac = new AbortController()
-    setState({ s: "loading" })
-    const init = { signal: ac.signal, headers: { accept: "application/vnd.github+json" } }
-
-    Promise.all([
-      fetch(`${GH_API}/users/${GITHUB_USER}`, init),
-      fetch(`${GH_API}/users/${GITHUB_USER}/repos?sort=pushed&per_page=8`, init),
-    ])
-      .then(async ([uRes, rRes]) => {
-        const remaining = readRemaining(uRes) ?? readRemaining(rRes)
-        if (uRes.status === 403 || uRes.status === 429 || rRes.status === 403 || rRes.status === 429) {
-          throw new Error(remaining === 0 ? RATE_LIMITED : `GitHub refused the request (${uRes.status}).`)
-        }
-        if (uRes.status === 404) throw new Error(`GitHub has no public user called "${GITHUB_USER}".`)
-        if (!uRes.ok) throw new Error(`GitHub answered ${uRes.status} for the profile.`)
-        if (!rRes.ok) throw new Error(`GitHub answered ${rRes.status} for the repositories.`)
-        const [uJson, rJson] = await Promise.all([
-          uRes.json() as Promise<unknown>,
-          rRes.json() as Promise<unknown>,
-        ])
-        const user = parseGhUser(uJson)
-        if (!user) throw new Error("GitHub returned a profile Nimbus could not read.")
-        return { user, repos: parseGhRepos(rJson), remaining }
-      })
-      .then((data) => {
-        if (!ac.signal.aborted) setState({ s: "ready", data })
-      })
-      .catch((err: unknown) => {
-        if (ac.signal.aborted) return
-        setState({ s: "error", message: netMessage(err, "api.github.com") })
-      })
-
-    return () => ac.abort()
-  }, [enabled, nonce])
 
   return [state, retry] as const
 }
@@ -815,7 +682,7 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
   // A JP address IS a turn, seeded exactly once per distinct question. Without
   // the ledger, walking back and forward through history — or opening the same
   // question in a second tab — would stutter the same turn into the transcript.
-  const seededJp = useRef<Set<string>>()
+  const seededJp = useRef<Set<string> | undefined>(undefined)
   const jpQuery = view.k === "results" && view.mode === "jp" ? view.q : null
   useEffect(() => {
     if (!jpQuery) return
@@ -1055,7 +922,7 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
         ) : view.k === "wiki" ? (
           <WikiArticle title={view.title} onExternal={openExternally} onSearch={searchIn} />
         ) : view.k === "gh" ? (
-          <GithubPage onExternal={openExternally} onSearch={searchIn} />
+          <GithubPage onExternal={openExternally} />
         ) : (
           <ExternalPage url={view.url} onExternal={openExternally} onSearch={searchIn} />
         )}
@@ -1240,7 +1107,7 @@ function OmniBox({
   rows: OmniRowItem[]
   placeholder: string
   secure: boolean
-  inputRef: RefObject<HTMLInputElement>
+  inputRef: RefObject<HTMLInputElement | null>
 }) {
   const [open, setOpen] = useState(false)
   const [cursor, setCursor] = useState(0)
@@ -1499,8 +1366,6 @@ function Solid({ label, icon, onClick }: { label: string; icon?: ReactNode; onCl
   )
 }
 
-const fmtDate = (iso: string) => (iso.length >= 10 ? iso.slice(0, 10) : iso)
-
 /* ================================================================== *
  * Home
  * ================================================================== */
@@ -1523,7 +1388,9 @@ function HomePage({
   const [q, setQ] = useState("")
 
   const shortcuts: { label: string; icon: ReactNode; go: () => void }[] = [
-    { label: "Projects", icon: <FolderOpen size={17} />, go: () => onReport(A.openApp("projects"), "Opened Projects.") },
+    ...(SHOW_PROJECTS
+      ? [{ label: "Projects", icon: <FolderOpen size={17} />, go: () => onReport(A.openApp("projects"), "Opened Projects.") }]
+      : []),
     { label: "Files", icon: <HardDrive size={17} />, go: () => onReport(A.openFolder(null), "Opened Desktop.") },
     { label: "Terminal", icon: <SquareTerminal size={17} />, go: () => onReport(A.openApp("terminal"), "Opened Terminal.") },
     { label: "GitHub", icon: <GitBranch size={17} />, go: onGithub },
@@ -1548,7 +1415,7 @@ function HomePage({
           {PROFILE.name}
         </p>
         <p className="mb-6 text-[12.5px]" style={{ color: "var(--os-muted)" }}>
-          {PROFILE.title}
+          {PROFILE.headline}
         </p>
 
         <form
@@ -1653,12 +1520,16 @@ function OfflineHome({
       icon: <AppWindow size={15} />,
       go: () => onReport(A.openStart(), "Opened Start."),
     },
-    {
-      label: "Browse projects",
-      hint: "The project archive, offline and complete.",
-      icon: <FolderOpen size={15} />,
-      go: () => onReport(A.openApp("projects"), "Opened Projects."),
-    },
+    ...(SHOW_PROJECTS
+      ? [
+          {
+            label: "Browse projects",
+            hint: "The project archive, offline and complete.",
+            icon: <FolderOpen size={15} />,
+            go: () => onReport(A.openApp("projects"), "Opened Projects."),
+          },
+        ]
+      : []),
     {
       label: "Browse files",
       hint: "File Explorer, starting at the Desktop.",
@@ -2166,6 +2037,9 @@ function ProfileRail({
             <p className="text-[12px]" style={{ color: "var(--os-muted)" }}>
               {PROFILE.title}
             </p>
+            <p className="text-[12px]" style={{ color: "var(--os-muted)" }}>
+              {PROFILE.next}
+            </p>
           </div>
         </div>
 
@@ -2275,9 +2149,8 @@ function WebResults({
       </div>
 
       <SourceNote>
-        These requests leave your browser for real, with no proxy and no API key. Almost nothing on
-        the web permits that: Wikipedia&rsquo;s REST API and GitHub&rsquo;s REST API do, so those are
-        the two sources Nimbus can honestly offer. Anything else is a link out to your own browser.
+        Web search uses Wikipedia&rsquo;s public API, with requests sent directly from your browser.
+        Pages from other websites open in your own browser.
       </SourceNote>
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
@@ -2372,10 +2245,9 @@ function WebResults({
                 <GitBranch size={13} /> {GITHUB_USER} on GitHub
               </p>
               <p className="mb-3 text-[12.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-                github.com cannot be embedded — it sends <code>X-Frame-Options: deny</code>. Nimbus
-                renders the public REST API instead, which is real data rather than a mock-up.
+                Visit {PROFILE.name}&rsquo;s GitHub profile in your own browser.
               </p>
-              <Solid label="Open the GitHub page" icon={<GitBranch size={12} />} onClick={onOpenGithub} />
+              <Solid label="View GitHub profile link" icon={<GitBranch size={12} />} onClick={onOpenGithub} />
             </div>
           )}
         </div>
@@ -2521,145 +2393,44 @@ function WikiArticle({
 
 /* ------------------------------------------------------------- github */
 
-function GithubPage({
-  onExternal,
-  onSearch,
-}: {
-  onExternal: (url: string) => void
-  onSearch: (q: string, m: Mode) => void
-}) {
-  const [gh, retry] = useGithub(true)
+function GithubPage({ onExternal }: { onExternal: (url: string) => void }) {
   const profileUrl = `https://github.com/${GITHUB_USER}`
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-5 py-6 sm:px-8">
-      <SourceNote>
-        github.com sends <code>X-Frame-Options: deny</code>, so no browser can embed it — inside JP OS
-        or anywhere else. What follows is fetched live from api.github.com instead: real profile and
-        real repositories, not a mock-up of a page.
-      </SourceNote>
-
-      {gh.s === "loading" && <Spinner label="Fetching the GitHub profile…" />}
-
-      {gh.s === "error" && (
-        <Notice tone="warn" title="GitHub did not answer" onRetry={retry}>
-          <p>{gh.message}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Chip label="Open GitHub externally" onClick={() => onExternal(profileUrl)} />
-            <Chip label="Browse the projects app instead" onClick={() => onSearch("projects", "local")} />
-          </div>
-        </Notice>
-      )}
-
-      {gh.s === "ready" && (
-        <>
-          <header className="mb-6 flex flex-wrap items-center gap-4">
-            <span
-              className="grid h-16 w-16 shrink-0 place-items-center rounded-full text-[20px] font-semibold"
-              style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
-            >
-              {PROFILE.initials}
-            </span>
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-semibold" style={{ color: "var(--os-fg)" }}>
-                {gh.data.user.name ?? gh.data.user.login}
-              </h1>
-              <p className="text-[13px]" style={{ color: "var(--os-muted)" }}>
-                github.com/{gh.data.user.login}
-              </p>
-            </div>
-            <div className="ml-auto">
-              <Solid
-                label="Open externally"
-                icon={<ExternalLink size={12} />}
-                onClick={() => onExternal(gh.data.user.htmlUrl)}
-              />
-            </div>
-          </header>
-
-          {gh.data.user.bio && (
-            <p className="mb-4 text-[13px] leading-relaxed" style={{ color: "var(--os-fg)" }}>
-              {gh.data.user.bio}
-            </p>
-          )}
-
-          <dl className="mb-6 flex flex-wrap gap-x-6 gap-y-1.5 text-[12px]">
-            {[
-              { k: "Public repos", v: String(gh.data.user.publicRepos) },
-              { k: "Followers", v: String(gh.data.user.followers) },
-              { k: "Following", v: String(gh.data.user.following) },
-              { k: "Member since", v: fmtDate(gh.data.user.createdAt) },
-              ...(gh.data.user.location ? [{ k: "Location", v: gh.data.user.location }] : []),
-              ...(gh.data.user.company ? [{ k: "Company", v: gh.data.user.company }] : []),
-            ].map((row) => (
-              <div key={row.k} className="flex items-center gap-1.5">
-                <dt style={{ color: "var(--os-muted)" }}>{row.k}</dt>
-                <dd className="font-semibold" style={{ color: "var(--os-fg)" }}>
-                  {row.v}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          <h2 className="mb-3 text-[13px] font-semibold" style={{ color: "var(--os-fg)" }}>
-            Most recently pushed{" "}
-            <span style={{ color: "var(--os-muted)" }}>· {gh.data.repos.length} shown</span>
-          </h2>
-
-          {gh.data.repos.length === 0 ? (
-            <Notice title="GitHub returned no public repositories.">
-              <p>That is the API&rsquo;s answer for this account, reported as-is.</p>
-            </Notice>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {gh.data.repos.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-col rounded-lg p-3.5"
-                  style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onExternal(r.htmlUrl)}
-                    className="mb-1 self-start text-left text-[13px] font-semibold hover:underline"
-                    style={{ color: "var(--os-accent)" }}
-                  >
-                    {r.name}
-                    {r.fork && (
-                      <span className="ml-1.5 text-[10.5px] font-normal" style={{ color: "var(--os-muted)" }}>
-                        fork
-                      </span>
-                    )}
-                  </button>
-                  <p className="mb-3 flex-1 text-[12px]" style={{ color: "var(--os-muted)" }}>
-                    {r.description ?? "No description on GitHub."}
-                  </p>
-                  <p
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]"
-                    style={{ color: "var(--os-muted)" }}
-                  >
-                    {r.language && <span>● {r.language}</span>}
-                    <span className="inline-flex items-center gap-1">
-                      <Star size={11} /> {r.stars}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <GitBranch size={11} /> {r.forks}
-                    </span>
-                    <span>pushed {fmtDate(r.pushedAt)}</span>
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="mt-6 text-[11px]" style={{ color: "var(--os-muted)" }}>
-            Live from api.github.com, unauthenticated.
-            {gh.data.remaining === null
-              ? " GitHub did not report a rate-limit budget on this response."
-              : ` ${gh.data.remaining} of 60 requests left in this hour's budget.`}
+      <header className="mb-6 flex flex-wrap items-center gap-4">
+        <span
+          className="grid h-16 w-16 shrink-0 place-items-center rounded-full text-[20px] font-semibold"
+          style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
+        >
+          {PROFILE.initials}
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-semibold" style={{ color: "var(--os-fg)" }}>
+            {PROFILE.name}
+          </h1>
+          <p className="text-[13px]" style={{ color: "var(--os-muted)" }}>
+            {PROFILE.github}
           </p>
-        </>
-      )}
+        </div>
+      </header>
+
+      <div
+        className="rounded-xl p-5"
+        style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
+      >
+        <p className="mb-1 flex items-center gap-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
+          <GitBranch size={15} /> GitHub profile
+        </p>
+        <p className="mb-4 text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+          Visit {PROFILE.name}&rsquo;s profile on GitHub.
+        </p>
+        <Solid
+          label="Open GitHub profile"
+          icon={<ExternalLink size={12} />}
+          onClick={() => onExternal(profileUrl)}
+        />
+      </div>
     </div>
   )
 }
@@ -2685,10 +2456,7 @@ function ExternalPage({
         {host} can&rsquo;t be shown inside Nimbus
       </h1>
       <p className="mb-4 text-[13.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-        JP OS runs inside one web page, so a site can only appear here if it allows framing and
-        cross-origin reads. Most don&rsquo;t — github.com, for one, sends{" "}
-        <code>X-Frame-Options: deny</code>. Rather than fake a rendering of a page it never received,
-        Nimbus hands it to the browser that can show it: yours.
+        Open this website in your own browser to view its pages and use its features.
       </p>
       <div className="mb-6 flex flex-wrap gap-2">
         <Solid label={`Open ${host} externally`} icon={<ExternalLink size={12} />} onClick={() => onExternal(url)} />
@@ -2696,8 +2464,7 @@ function ExternalPage({
         <Chip label="Search this PC instead" onClick={() => onSearch(host, "local")} />
       </div>
       <p className="text-[11.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-        The two origins Nimbus can genuinely read from a browser are en.wikipedia.org and
-        api.github.com. Everything else is a link out, and it says so rather than pretending.
+        Nimbus displays Wikipedia search results and article summaries here. Other websites open externally.
       </p>
     </div>
   )

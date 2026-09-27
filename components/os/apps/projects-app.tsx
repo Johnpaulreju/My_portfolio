@@ -1,13 +1,21 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Folder, Grid2X2, List as ListIcon, Search } from "lucide-react"
-import { PROJECTS, type Project } from "@/lib/os/content"
-import { Pill } from "./kit"
+import { Folder, FolderOpen, Grid2X2, List as ListIcon, Search } from "lucide-react"
+import { PORTFOLIO_STATUS, PROJECTS, SHOW_PROJECTS, type Project } from "@/lib/os/content"
+import { ComingSoon, Pill } from "./kit"
 
 const CATEGORIES = ["All", "AI / ML", "Full-Stack", "Computer Vision", "Automation"] as const
 
 export function ProjectsApp() {
+  return SHOW_PROJECTS && PROJECTS.length > 0 ? (
+    <ProjectBrowser />
+  ) : (
+    <ComingSoon icon={<FolderOpen size={26} />} {...PORTFOLIO_STATUS.projects} />
+  )
+}
+
+function ProjectBrowser() {
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All")
   const [query, setQuery] = useState("")
   const [view, setView] = useState<"grid" | "list">("grid")

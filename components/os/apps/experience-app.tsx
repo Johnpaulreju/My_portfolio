@@ -1,14 +1,34 @@
 "use client"
 
 import { GraduationCap, Briefcase } from "lucide-react"
-import { TIMELINE } from "@/lib/os/content"
-import { Page, PageTitle, Pill } from "./kit"
+import { PROFILE, TIMELINE } from "@/lib/os/content"
+import { Card, Page, PageTitle, Pill } from "./kit"
 
 export function ExperienceApp() {
   return (
     <Page>
-      <PageTitle title="Experience" sub="Where I've worked and what I studied." />
+      <PageTitle title="Experience" sub="Current freelance work, employer history and education." />
 
+      <section className="mb-7">
+        <h2 className="mb-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>Current work</h2>
+        <Card className="p-4">
+          <p className="text-[15px] font-semibold" style={{ color: "var(--os-fg)" }}>{PROFILE.role}</p>
+          <p className="mt-1 text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+            {PROFILE.availability}
+          </p>
+        </Card>
+      </section>
+
+      <TimelineSection title="Employer history" kind="work" />
+      <TimelineSection title="Education" kind="education" />
+    </Page>
+  )
+}
+
+function TimelineSection({ title, kind }: { title: string; kind: "work" | "education" }) {
+  return (
+    <section className="mb-7 last:mb-0">
+      <h2 className="mb-4 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>{title}</h2>
       <ol className="relative ml-4">
         {/* The spine the milestones hang off. */}
         <span
@@ -17,7 +37,7 @@ export function ExperienceApp() {
           aria-hidden
         />
 
-        {TIMELINE.map((ev) => {
+        {TIMELINE.filter((event) => event.kind === kind).map((ev) => {
           const work = ev.kind === "work"
           const Icon = work ? Briefcase : GraduationCap
           return (
@@ -38,7 +58,6 @@ export function ExperienceApp() {
                   {ev.label}
                 </h3>
                 <Pill tone="accent">{ev.year}</Pill>
-                <Pill>{work ? "Work" : "Education"}</Pill>
               </div>
               <p className="mb-2 text-[13px]" style={{ color: "var(--os-accent-fg)" }}>
                 {ev.org}
@@ -60,6 +79,6 @@ export function ExperienceApp() {
           )
         })}
       </ol>
-    </Page>
+    </section>
   )
 }

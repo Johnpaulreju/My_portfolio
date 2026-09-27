@@ -13,12 +13,14 @@ import { PROFILE } from "@/lib/os/content"
 import { usePower } from "@/lib/os/power-store"
 import { AppIcon } from "@/components/os/app-icon"
 import { TASKBAR_H } from "./taskbar"
+import { useFlyoutFocus } from "./use-flyout-focus"
 
 export function StartMenu() {
   const { startOpen, setStartOpen, open } = useWM()
   const { nodes } = useFS()
   const [query, setQuery] = useState("")
   const ref = useRef<HTMLDivElement>(null)
+  useFlyoutFocus(startOpen, ref)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,7 +40,11 @@ export function StartMenu() {
       if (ref.current?.contains(t) || t.closest('[aria-label="Start"]')) return
       setStartOpen(false)
     }
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setStartOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      setStartOpen(false)
+      document.querySelector<HTMLButtonElement>('[aria-label="Start"]')?.focus()
+    }
     window.addEventListener("pointerdown", onDown, true)
     window.addEventListener("keydown", onKey)
     return () => {
@@ -49,14 +55,9 @@ export function StartMenu() {
 
   const q = query.trim().toLowerCase()
 
-  // One ranked index, shared with Nimbus and the shell - this used to be a naive
-  // substring filter that could not see portfolio content at all.
-  // `nodes` stays in the deps because search() reads useFS.getState() directly,
-  // so the memo must still re-run when the filesystem changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `nodes` is NOT unused:
-  // search() reads useFS.getState() internally, so this memo must re-run whenever
-  // the filesystem changes. The linter cannot see that indirect read.
-  const hits = useMemo(() => (q ? search(query, "all", 24) : null), [q, query, nodes])
+  // search() reads the filesystem store directly; this render is subscribed to
+  // nodes, so evaluating here keeps file results fresh without a hidden memo dep.
+  const hits = q ? search(query, "all", 24) : null
 
   const apps = useMemo(() => {
     if (!hits) return ALL_APPS
@@ -91,6 +92,7 @@ export function StartMenu() {
   return (
     <div
       ref={ref}
+      tabIndex={-1}
       className="absolute left-1/2 z-[150] w-[640px] max-w-[calc(100vw-24px)] -translate-x-1/2 rounded-xl p-6 shadow-2xl"
       style={{
         bottom: TASKBAR_H + 8,
@@ -112,6 +114,7 @@ export function StartMenu() {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search for apps and files"
           placeholder="Search for apps and files"
           className="w-full bg-transparent text-[13px] outline-none placeholder:text-[var(--os-muted)]"
         />

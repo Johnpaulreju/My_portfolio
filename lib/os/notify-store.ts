@@ -43,6 +43,8 @@ type NotifyState = {
   resume: () => void
   setDnd: (v: boolean) => void
   clearCenter: () => void
+  /** Swipe one notification away; its popup goes with it. */
+  remove: (id: string) => void
   markRead: () => void
 }
 
@@ -60,7 +62,7 @@ export const useNotify = create<NotifyState>((set, get) => ({
     const now = Date.now()
     const toast: Toast = { ...t, id: `t${++seq}`, at: now, expiresAt: now + TOAST_MS }
     const cue = t.sound === undefined ? "notify" : t.sound
-    if (cue) playSfx(cue)
+    if (cue && !get().dnd) playSfx(cue)
     set((s) => ({
       // Do Not Disturb suppresses the popup but never the record.
       toasts: s.dnd ? s.toasts : [...s.toasts, toast].slice(-MAX_VISIBLE),
@@ -70,7 +72,7 @@ export const useNotify = create<NotifyState>((set, get) => ({
   },
 
   dismiss: (id) =>
-    set((s) => ({ toasts: s.toasts.map((t) => (t.id === id ? { ...t, leaving: true } : t)) })),
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   // One 250ms tick drives every toast: no drift, no StrictMode double-fire, pausable.
   tick: () =>
@@ -103,5 +105,7 @@ export const useNotify = create<NotifyState>((set, get) => ({
 
   setDnd: (dnd) => set((s) => ({ dnd, toasts: dnd ? [] : s.toasts })),
   clearCenter: () => set({ center: [], unread: 0 }),
+  remove: (id) =>
+    set((s) => ({ center: s.center.filter((t) => t.id !== id), toasts: s.toasts.filter((t) => t.id !== id) })),
   markRead: () => set({ unread: 0 }),
 }))

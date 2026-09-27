@@ -22,6 +22,8 @@ export type AppId =
   | "tube"
   | "ridgeline"
   | "vantage"
+  | "clock"
+  | "camera"
 
 export type Size = { w: number; h: number }
 export type Point = { x: number; y: number }
@@ -40,6 +42,10 @@ export type WindowInstance = {
   size: Size
   /** Restored geometry, remembered while maximized or snapped. */
   restore: { pos: Point; size: Size } | null
+  /** App-reported work that would be lost by closing this session. */
+  unsavedWork?: boolean
+  /** Preferred free geometry retained while a smaller desktop constrains it. */
+  viewportRestore?: { pos: Point; size: Size } | null
   minimized: boolean
   maximized: boolean
   snapped: SnapSide

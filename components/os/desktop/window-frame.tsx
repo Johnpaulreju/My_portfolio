@@ -1,11 +1,14 @@
 "use client"
 
-import { useCallback, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react"
+import { inertProps } from "@/components/os/shell-dom"
+
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react"
 import { Minus, Square, X, Copy } from "lucide-react"
-import { useWM, MIN_W, MIN_H } from "@/lib/os/wm-store"
+import { useWM, MIN_W, MIN_H, fitGeometry } from "@/lib/os/wm-store"
 import type { Point, Size, WindowInstance } from "@/lib/os/types"
 import { AppIcon } from "@/components/os/app-icon"
 import { APP_META } from "@/lib/os/app-meta"
+import { launchOrigin, reducedMotion, takeLaunch } from "@/lib/os/phone-home"
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
@@ -24,9 +27,61 @@ const SNAP_EDGE = 12
 /** A press must travel this far before it counts as a drag rather than a click. */
 const DRAG_THRESHOLD = 4
 
-export function WindowFrame({ win, children }: { win: WindowInstance; children: ReactNode }) {
-  const { focus, close, minimize, toggleMaximize, move, resize, snap, bounds, focusedId } = useWM()
+export function WindowFrame({ win, children, mobile = false, visible = true, powered = true }: { win: WindowInstance; children: ReactNode; mobile?: boolean; visible?: boolean; powered?: boolean }) {
+  const { focus, close, minimize, toggleMaximize, resize, snap, bounds, focusedId } = useWM()
   const active = focusedId === win.id
+  const hidden = win.minimized || !visible
+  const frameRef = useRef<HTMLDivElement>(null)
+  const lastFocus = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!active || hidden || !powered) return
+    const frame = frameRef.current
+    const raf = requestAnimationFrame(() => {
+      if (!frame || frame.closest("[inert]")) return
+      if (frame.contains(document.activeElement)) return
+      const target = lastFocus.current
+      if (target?.isConnected && !target.closest("[inert]")) target.focus({ preventScroll: true })
+      else frame.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [active, hidden, mobile, powered])
+
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!hidden || !frame?.contains(document.activeElement)) return
+    const raf = requestAnimationFrame(() => {
+      const state = useWM.getState()
+      const target = state.focusedId
+        ? document.querySelector<HTMLElement>(`[data-window-id="${state.focusedId}"]`)
+        : document.querySelector<HTMLElement>(mobile ? '[data-phone-home]' : `[data-task-app="${win.appId}"]`)
+      if (target && !target.closest("[inert]")) target.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [hidden, mobile, win.appId])
+
+  // Phone only: grow out of the icon that was tapped, and shrink back into it on Home.
+  // Transform and opacity only, so it stays smooth; skipped when motion is reduced. Launches and Home
+  // come from clicks and keys, and React runs effects of those renders before the browser paints.
+  const wasHidden = useRef(true)
+  useEffect(() => {
+    const frame = frameRef.current
+    const opening = wasHidden.current && !hidden
+    const goingHome = !wasHidden.current && hidden && win.minimized
+    wasHidden.current = hidden
+    if (!mobile || !frame || typeof frame.animate !== "function" || (!opening && !goingHome)) return
+    const from = opening ? takeLaunch(win.appId) : launchOrigin(win.appId)
+    if (!from || reducedMotion()) return
+    const box = (frame.offsetParent ?? frame).getBoundingClientRect()
+    if (!box.width || !box.height) return
+    const scale = Math.max(0.08, from.w / box.width)
+    const icon = `translate(${from.x + from.w / 2 - (box.left + box.width / 2)}px, ${from.y + from.h / 2 - (box.top + box.height / 2)}px) scale(${scale})`
+    const keyframes = opening
+      ? [{ transform: icon, opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: "none", opacity: 1 }]
+      : [{ transform: "none", opacity: 1, visibility: "visible" }, { transform: icon, opacity: 0, visibility: "visible" }]
+    frame.animate(keyframes, { duration: opening ? 250 : 200, easing: "cubic-bezier(.2,0,0,1)" })
+  }, [hidden, mobile, win.appId, win.minimized])
+
   const isDialog = APP_META[win.appId].chrome === "dialog"
 
   // Geometry is tracked locally while a gesture is in flight so only this window
@@ -54,7 +109,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
   }, [])
 
   const onTitlePointerDown = (e: RPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return
+    if (mobile || e.button !== 0) return
     const target = e.target as HTMLElement
     if (target.closest("[data-no-drag]")) return
 
@@ -72,7 +127,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
   }
 
   const onResizePointerDown = (dir: Handle) => (e: RPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return
+    if (mobile || e.button !== 0) return
     e.stopPropagation()
     focus(win.id)
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -83,6 +138,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
   const onPointerMove = (e: RPointerEvent<HTMLDivElement>) => {
     const g = gesture.current
     if (!g) return
+    if (e.buttons === 0) { endGesture(); return }
     const dx = e.clientX - g.sx
     const dy = e.clientY - g.sy
 
@@ -93,7 +149,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
         e.currentTarget.setPointerCapture(e.pointerId)
         // Dragging a maximized window tears it loose, cursor-relative, like Windows does.
         if (win.maximized || win.snapped) {
-          const r = win.restore ?? { pos: { x: 80, y: 80 }, size: { w: 900, h: 600 } }
+          const r = fitGeometry(win.restore ?? { pos: { x: 80, y: 80 }, size: { w: 900, h: 600 } }, bounds)
           const ratio = (g.sx - win.pos.x) / Math.max(1, win.size.w)
           g.orig = { pos: { x: g.sx - r.size.w * ratio, y: Math.max(0, g.sy - 16) }, size: r.size }
         }
@@ -140,9 +196,11 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
     if (!final) return
 
     if (g.kind === "move") {
+      // Commit the restored size and clear maximize/snap before applying an edge.
+      // A position-only commit leaves a torn-off window maximized in the store.
+      resize(win.id, final.pos, final.size)
       if (hint === "max") toggleMaximize(win.id)
       else if (hint === "left" || hint === "right") snap(win.id, hint)
-      else move(win.id, final.pos)
     } else {
       resize(win.id, final.pos, final.size)
     }
@@ -150,7 +208,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
 
   return (
     <>
-      {snapHint && !win.minimized && (
+      {snapHint && !hidden && !mobile && (
         <div
           className="pointer-events-none fixed z-[60] rounded-lg border-2 border-white/60 bg-white/20 backdrop-blur-sm transition-all duration-150"
           style={
@@ -167,22 +225,31 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
       )}
 
       <div
-        className="absolute flex flex-col overflow-hidden rounded-lg"
-        aria-hidden={win.minimized || undefined}
+        ref={frameRef}
+        data-window-id={win.id}
+        data-window
+        tabIndex={-1}
+        className={`absolute flex flex-col overflow-hidden outline-none ${mobile ? "" : "rounded-lg"}`}
+        aria-hidden={hidden || undefined}
+        {...inertProps(hidden)}
         style={{
           // Hidden, not unmounted: React keeps the app's state alive in the taskbar.
-          display: win.minimized ? "none" : "flex",
-          left: pos.x,
-          top: pos.y,
-          width: size.w,
-          height: size.h,
+          left: mobile ? 0 : pos.x,
+          top: mobile ? 0 : pos.y,
+          width: mobile ? "100%" : size.w,
+          height: mobile ? "100%" : size.h,
+          opacity: hidden ? 0 : 1,
+          visibility: hidden ? "hidden" : "visible",
+          pointerEvents: hidden ? "none" : "auto",
+          transform: hidden ? "translateY(18px) scale(.97)" : "none",
           zIndex: win.z,
-          background: "var(--os-window)",
+          // Phone apps are opaque, like real Android apps; the home screen must not show through.
+          background: mobile ? "var(--os-surface)" : "var(--os-window)",
           border: "1px solid var(--os-border)",
-          boxShadow: active
+          boxShadow: mobile ? "none" : active
             ? "0 24px 60px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4)"
             : "0 10px 28px rgba(0,0,0,.35)",
-          transition: ghost ? "none" : "left .12s ease, top .12s ease, width .12s ease, height .12s ease",
+          transition: ghost ? "none" : `left .12s ease, top .12s ease, width .12s ease, height .12s ease, opacity .18s ease, transform .18s ease, visibility 0s ${hidden ? ".18s" : "0s"}`,
         }}
         onPointerDown={() => focus(win.id)}
         role="dialog"
@@ -190,29 +257,30 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
       >
         {/* Title bar */}
         <div
-          className="flex h-9 shrink-0 select-none items-center gap-2 pl-3 pr-0"
-          style={{ background: "var(--os-chrome)", cursor: ghost && gesture.current?.kind === "move" ? "grabbing" : "default" }}
+          className={`flex shrink-0 select-none items-center pr-0 ${mobile ? "phone-app-bar h-14 gap-3 pl-4" : "h-9 gap-2 pl-3"}`}
+          style={{ background: mobile ? "var(--os-surface)" : "var(--os-chrome)", borderBottom: mobile ? "1px solid var(--os-border)" : undefined, cursor: ghost && gesture.current?.kind === "move" ? "grabbing" : "default" }}
           onPointerDown={onTitlePointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onDoubleClick={() => !isDialog && toggleMaximize(win.id)}
+          onPointerCancel={endGesture}
+          onLostPointerCapture={endGesture}
+          onDoubleClick={() => !mobile && !isDialog && toggleMaximize(win.id)}
         >
-          <AppIcon appId={win.appId} size={16} />
+          <AppIcon appId={win.appId} size={mobile ? 24 : 16} />
           <span
-            className="flex-1 truncate text-[12.5px]"
+            className={`flex-1 truncate ${mobile ? "text-[17px] font-medium" : "text-[12.5px]"}`}
             style={{ color: active ? "var(--os-fg)" : "var(--os-muted)" }}
           >
             {win.title}
           </span>
 
           <div className="flex h-full items-stretch" data-no-drag>
-            {!isDialog && (
+            {!mobile && !isDialog && (
               <TitleButton label="Minimize" onClick={() => minimize(win.id)}>
                 <Minus size={14} />
               </TitleButton>
             )}
-            {!isDialog && (
+            {!mobile && !isDialog && (
               <TitleButton label={win.maximized ? "Restore" : "Maximize"} onClick={() => toggleMaximize(win.id)}>
                 {win.maximized ? <Copy size={11} className="-scale-x-100" /> : <Square size={11} />}
               </TitleButton>
@@ -224,7 +292,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
         </div>
 
         {/* App surface */}
-        <div className="relative min-h-0 flex-1 overflow-hidden" style={{ background: "var(--os-surface)" }}>
+        <div className="relative min-h-0 flex-1 overflow-hidden" onFocusCapture={(e) => { lastFocus.current = e.target as HTMLElement }} style={{ background: "var(--os-surface)" }}>
           {children}
         </div>
 
@@ -233,7 +301,7 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
             so the shield would cover the title bar and eat the dblclick. */}
         {ghost && <div className="absolute inset-0 z-10" />}
 
-        {!win.maximized &&
+        {!mobile && !win.maximized &&
           !isDialog &&
           HANDLES.map((h) => (
             <div
@@ -243,7 +311,8 @@ export function WindowFrame({ win, children }: { win: WindowInstance; children: 
               onPointerDown={onResizePointerDown(h.dir)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
+              onPointerCancel={endGesture}
+              onLostPointerCapture={endGesture}
             />
           ))}
       </div>
@@ -268,7 +337,7 @@ function TitleButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`grid w-[46px] place-items-center text-[var(--os-fg)] transition-colors ${
+      className={`grid w-12 place-items-center text-[var(--os-fg)] transition-colors ${
         danger ? "hover:bg-[#c42b1c] hover:text-white" : "hover:bg-[var(--os-hover)]"
       }`}
     >

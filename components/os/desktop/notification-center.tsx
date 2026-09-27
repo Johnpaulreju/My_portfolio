@@ -5,13 +5,18 @@ import { BellOff } from "lucide-react"
 import { useNotify } from "@/lib/os/notify-store"
 import { useWM } from "@/lib/os/wm-store"
 import { AppIcon } from "@/components/os/app-icon"
+import { MonthCalendar } from "@/components/os/clock/month-calendar"
 import { TASKBAR_H } from "./taskbar"
+import { useFlyoutFocus } from "./use-flyout-focus"
 
 export function NotificationCenter() {
   const notifOpen = useWM((s) => s.notifOpen)
   const setNotifOpen = useWM((s) => s.setNotifOpen)
   const { center, clearCenter, markRead } = useNotify()
+  const open = useWM((s) => s.open)
+  const setPayload = useWM((s) => s.setPayload)
   const ref = useRef<HTMLDivElement>(null)
+  useFlyoutFocus(notifOpen, ref)
 
   useEffect(() => {
     if (notifOpen) markRead()
@@ -36,66 +41,76 @@ export function NotificationCenter() {
   if (!notifOpen) return null
 
   const fmt = (n: number) => new Date(n).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  // Clock is a singleton, so tell an already-open window to switch tabs too.
+  const openAlarms = () => setPayload(open("clock", { tab: "alarm" }), { tab: "alarm" })
 
+  // Two stacked cards like Windows 11: notifications on top, the calendar below.
   return (
     <div
       ref={ref}
+      tabIndex={-1}
       role="dialog"
       aria-label="Notification Center"
-      className="absolute right-3 z-[150] flex max-h-[70vh] w-[372px] flex-col rounded-xl shadow-2xl"
+      className="absolute right-3 z-[150] flex w-[372px] flex-col gap-3 outline-none"
       style={{
         bottom: TASKBAR_H + 10,
-        background: "var(--os-menu)",
-        border: "1px solid var(--os-border)",
-        backdropFilter: "blur(40px) saturate(170%)",
+        maxHeight: `calc(100% - ${TASKBAR_H + 20}px)`,
         color: "var(--os-fg)",
-        animation: "start-rise .16s ease-out",
+        animation: "drawer-up .16s ease-out",
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-[14px] font-semibold">Notifications</span>
-        {center.length > 0 && (
-          <button
-            type="button"
-            onClick={clearCenter}
-            className="rounded px-2 py-1 text-[12px] hover:bg-[var(--os-hover)]"
-            style={{ color: "var(--os-muted)" }}
-          >
-            Clear all
-          </button>
-        )}
-      </div>
-
-      <div className="os-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {center.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-14" style={{ color: "var(--os-muted)" }}>
-            <BellOff size={26} />
-            <p className="text-[12.5px]">No new notifications</p>
-          </div>
-        ) : (
-          center.map((t) => (
-            <div
-              key={t.id}
-              className="mb-1.5 flex gap-3 rounded-lg p-3"
-              style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
+      <section
+        aria-label="Notifications"
+        className="flex min-h-0 shrink flex-col rounded-xl shadow-2xl"
+        style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(40px) saturate(170%)" }}
+      >
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-[14px] font-semibold">Notifications</span>
+          {center.length > 0 && (
+            <button
+              type="button"
+              onClick={clearCenter}
+              className="rounded px-2 py-1 text-[12px] hover:bg-[var(--os-hover)]"
+              style={{ color: "var(--os-muted)" }}
             >
-              <AppIcon appId={t.appId} size={20} />
-              <div className="min-w-0 flex-1">
-                <p className="flex justify-between text-[11px]" style={{ color: "var(--os-muted)" }}>
-                  <span>{t.source}</span>
-                  <span>{fmt(t.at)}</span>
-                </p>
-                <p className="truncate text-[13px] font-medium">{t.title}</p>
-                {t.body && (
-                  <p className="text-[12px] leading-snug" style={{ color: "var(--os-muted)" }}>
-                    {t.body}
-                  </p>
-                )}
-              </div>
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <div className="os-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+          {center.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 pb-8 pt-4" style={{ color: "var(--os-muted)" }}>
+              <BellOff size={26} />
+              <p className="text-[12.5px]">No new notifications</p>
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            center.map((t) => (
+              <div
+                key={t.id}
+                className="mb-1.5 flex gap-3 rounded-lg p-3"
+                style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
+              >
+                <AppIcon appId={t.appId} size={20} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex justify-between text-[11px]" style={{ color: "var(--os-muted)" }}>
+                    <span>{t.source}</span>
+                    <span>{fmt(t.at)}</span>
+                  </p>
+                  <p className="truncate text-[13px] font-medium">{t.title}</p>
+                  {t.body && (
+                    <p className="text-[12px] leading-snug" style={{ color: "var(--os-muted)" }}>
+                      {t.body}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <MonthCalendar onOpenAlarms={openAlarms} />
     </div>
   )
 }

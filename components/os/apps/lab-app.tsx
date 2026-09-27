@@ -1,10 +1,13 @@
 "use client"
 
 import { FlaskConical } from "lucide-react"
-import { LAB } from "@/lib/os/content"
-import { Card, Meter, Page, PageTitle, Pill } from "./kit"
+import { LAB, PORTFOLIO_STATUS, SHOW_LAB } from "@/lib/os/content"
+import { Card, ComingSoon, Meter, Page, PageTitle, Pill } from "./kit"
 
 export function LabApp() {
+  if (!SHOW_LAB || LAB.length === 0) {
+    return <ComingSoon icon={<FlaskConical size={26} />} {...PORTFOLIO_STATUS.lab} />
+  }
   return (
     <Page>
       <PageTitle title="Lab" sub="Experiments currently on the bench." />

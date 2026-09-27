@@ -1,12 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { FilePlus2, FolderPlus, Monitor, Moon, Palette, RefreshCw, Sun } from "lucide-react"
 import { useWM } from "@/lib/os/wm-store"
 import { usePower } from "@/lib/os/power-store"
 import { useFS } from "@/lib/os/fs-store"
 import { Wallpaper } from "@/components/os/wallpaper"
-import { AppHost } from "@/components/os/app-host"
+import { ShellSessions } from "@/components/os/shell-sessions"
 import { ContextMenu, type MenuItem, type MenuState } from "./context-menu"
 import { DesktopIcons } from "./desktop-icons"
 import { StartMenu } from "./start-menu"
@@ -15,10 +15,9 @@ import { QuickSettings } from "./quick-settings"
 import { NotificationCenter } from "./notification-center"
 import { ToastHost } from "@/components/os/toast-host"
 import { SystemEffects } from "@/components/os/system-effects"
-import { WindowFrame } from "./window-frame"
 
-export function DesktopShell() {
-  const { windows, theme, toggleTheme, setBounds, open, setStartOpen, closeFlyouts } = useWM()
+export function DesktopShell({ managed = false }: { managed?: boolean }) {
+  const { theme, toggleTheme, setBounds, open, closeFlyouts } = useWM()
   const { create, setRenaming } = useFS()
   const [menu, setMenu] = useState<MenuState>(null)
   /** Bumped by Refresh; the icon layer blanks for a beat and redraws, as the real desktop does. */
@@ -65,9 +64,9 @@ export function DesktopShell() {
 
   const openMenu = useCallback((x: number, y: number, items: MenuItem[]) => setMenu({ x, y, items }), [])
 
-  // Keep the store's idea of the usable desktop in sync with the viewport.
-  useEffect(() => {
-    const sync = () => setBounds({ w: window.innerWidth, h: window.innerHeight - TASKBAR_H })
+  // Fit retained phone sessions before desktop chrome is painted.
+  useLayoutEffect(() => {
+    const sync = () => { if (window.innerWidth >= 768) setBounds({ w: window.innerWidth, h: window.innerHeight - TASKBAR_H }) }
     sync()
     window.addEventListener("resize", sync)
     return () => window.removeEventListener("resize", sync)
@@ -118,7 +117,7 @@ export function DesktopShell() {
   return (
     <div
       className={`relative h-[100dvh] w-full overflow-hidden select-none ${
-        powerState === "running" ? "shell-entering" : ""
+        !managed && powerState === "running" ? "shell-entering" : ""
       }`}
       style={{ color: "var(--os-fg)" }}
       onContextMenu={(e) => {
@@ -129,11 +128,9 @@ export function DesktopShell() {
       }}
     >
       <Wallpaper theme={theme} />
-      <SystemEffects />
+      {!managed && <SystemEffects />}
 
-      {/* Icon + window layer, inset above the taskbar */}
-      {/* isolation:isolate gives the window layer its own stacking context, so a
-          window's ever-increasing z can never climb above the taskbar or Start menu. */}
+      {/* Desktop icons stay below the shared app layer and taskbar. */}
       <div
         className="absolute inset-x-0 top-0"
         style={{ bottom: TASKBAR_H, isolation: "isolate" }}
@@ -142,17 +139,10 @@ export function DesktopShell() {
         <div className={blinking ? "icon-layer-refreshing" : "icon-layer-settled"}>
           <DesktopIcons key={refreshToken} openMenu={openMenu} />
         </div>
-
-        {windows.map((win) => (
-          <div key={win.id} data-window>
-            <WindowFrame win={win}>
-              <AppHost appId={win.appId} win={win} />
-            </WindowFrame>
-          </div>
-        ))}
       </div>
 
-      <ToastHost />
+      {!managed && <ShellSessions />}
+      {!managed && <ToastHost />}
       <QuickSettings />
       <NotificationCenter />
       <StartMenu />

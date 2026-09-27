@@ -1,5 +1,7 @@
 "use client"
 
+import { useSessionWork } from "@/lib/os/session-work"
+
 import {
   useCallback,
   useEffect,
@@ -11,6 +13,7 @@ import {
   type DragEvent as RDragEvent,
   type KeyboardEvent as RKeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from "react"
 import {
   AlignCenter,
@@ -49,6 +52,7 @@ import { useWM } from "@/lib/os/wm-store"
 import { playSfx } from "@/lib/os/sfx"
 import { PROFILE } from "@/lib/os/content"
 import { sanitizeHtml, textToHtml } from "@/lib/os/sanitize-html"
+import { ModalSurface } from "@/components/os/dialogs/modal-surface"
 import { Slider } from "@/components/os/ui/slider"
 import type { WindowInstance } from "@/lib/os/types"
 
@@ -184,7 +188,9 @@ export function DocsApp({ win }: { win: WindowInstance }) {
   const [menu, setMenu] = useState<string | null>(null)
   const [fmt, setFmt] = useState<Fmt>(BLANK)
   const [counts, setCounts] = useState({ words: 0, chars: 0 })
+  const savedHtml = useRef("")
   const [dirty, setDirty] = useState(false)
+  useSessionWork(dirty)
   const [flash, setFlash] = useState<string | null>(null)
   const [guard, setGuard] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
@@ -266,7 +272,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
   }, [])
 
   const markDirty = useCallback(() => {
-    setDirty(true)
+    setDirty(editorRef.current?.innerHTML !== savedHtml.current)
     setFlash(null)
     recount()
   }, [recount])
@@ -296,6 +302,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
       /* Older engines simply keep their defaults. */
     }
 
+    savedHtml.current = editorRef.current?.innerHTML ?? ""
     setDirty(false)
     setFlash(null)
     recount()
@@ -489,7 +496,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
   const insertSignature = () =>
     insertHtml(
       `<p><br></p><p><b>${PROFILE.name}</b></p>` +
-        `<p><span style="color: ${INK_SOFT}">${PROFILE.title}</span></p>` +
+        `<p><span style="color: ${INK_SOFT}">${PROFILE.headline}</span></p>` +
         `<p><span style="color: ${INK_SOFT}">${PROFILE.email} · ${PROFILE.phone}</span></p>`,
     )
 
@@ -582,6 +589,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
     const name = useFS.getState().get(id)?.name ?? "Untitled Document"
     setPayload(win.id, { fileId: id })
     setTitle(win.id, `${name} — JP's Docs`)
+    savedHtml.current = editorRef.current?.innerHTML ?? ""
     setDirty(false)
     setFlash(note)
   }
@@ -598,6 +606,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
 
     const res = fs.setBody(fileId, html)
     if (res.ok) {
+      savedHtml.current = editorRef.current?.innerHTML ?? ""
       setDirty(false)
       setFlash("Saved")
       return
@@ -1100,7 +1109,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
       </div>
 
       {/* ---------- The "these are my words" dialog ---------- */}
-      {guard && <SaveGuard onCopy={saveCopy} onDismiss={() => setGuard(false)} />}
+      {guard && <SaveGuard onCopy={saveCopy} onDismiss={() => setGuard(false)} returnFocusRef={editorRef} />}
     </div>
   )
 }
@@ -1384,74 +1393,74 @@ function Swatches({
  * The refusal, made friendly
  * ==================================================================== */
 
-function SaveGuard({ onCopy, onDismiss }: { onCopy: () => void; onDismiss: () => void }) {
+function SaveGuard({ onCopy, onDismiss, returnFocusRef }: { onCopy: () => void; onDismiss: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
   return (
-    <div
-      className="absolute inset-0 z-[60] grid place-items-center p-6"
-      style={{ background: "var(--os-scrim)", backdropFilter: "blur(2px)" }}
-      onPointerDown={onDismiss}
-    >
+    <ModalSurface label="This one stays in my words" onDismiss={onDismiss} returnFocusRef={returnFocusRef}>
       <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-label="This one stays in my words"
-        onPointerDown={(e) => e.stopPropagation()}
-        className="w-full max-w-[440px] rounded-xl p-5 shadow-2xl"
-        style={{
-          background: "var(--os-menu)",
-          border: "1px solid var(--os-border)",
-          backdropFilter: "blur(30px)",
-        }}
+        className="absolute inset-0 z-[60] grid place-items-center p-6"
+        style={{ background: "var(--os-scrim)", backdropFilter: "blur(2px)" }}
+        onPointerDown={onDismiss}
       >
-        <div className="mb-3 flex items-center gap-2.5">
-          <span
-            className="grid h-9 w-9 place-items-center rounded-lg"
-            style={{ background: "var(--os-accent-soft)", color: "var(--os-accent-fg)" }}
-          >
-            <Lock size={17} />
-          </span>
-          <h2 className="text-[15px] font-semibold" style={{ color: "var(--os-fg)" }}>
-            Let me be the one to say it
-          </h2>
-        </div>
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          className="w-full max-w-[440px] rounded-xl p-5 shadow-2xl"
+          style={{
+            background: "var(--os-menu)",
+            border: "1px solid var(--os-border)",
+            backdropFilter: "blur(30px)",
+          }}
+        >
+          <div className="mb-3 flex items-center gap-2.5">
+            <span
+              className="grid h-9 w-9 place-items-center rounded-lg"
+              style={{ background: "var(--os-accent-soft)", color: "var(--os-accent-fg)" }}
+            >
+              <Lock size={17} />
+            </span>
+            <h2 className="text-[15px] font-semibold" style={{ color: "var(--os-fg)" }}>
+              Let me be the one to say it
+            </h2>
+          </div>
 
-        <p className="text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-          Genuinely glad you are enjoying editing my words — that is the whole point of a desktop you
-          can actually use. This page is my introduction though, so I would like to be the one who
-          tells them who I am.
-        </p>
-        <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-          Take a copy and it is yours: rewrite it, improve it, give me a much better job title. Your
-          version saves normally and stays on the Desktop.
-        </p>
+          <p className="text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+            Genuinely glad you are enjoying editing my words — that is the whole point of a desktop you
+            can actually use. This page is my introduction though, so I would like to be the one who
+            tells them who I am.
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+            Take a copy and it is yours: rewrite it, improve it, give me a much better job title. Your
+            version saves normally and stays on the Desktop.
+          </p>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-md px-4 py-[7px] text-[13px] font-medium transition-colors hover:bg-[var(--os-hover)]"
-            style={{
-              background: "var(--os-card)",
-              border: "1px solid var(--os-border)",
-              color: "var(--os-fg)",
-            }}
-          >
-            Keep editing
-          </button>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="rounded-md px-4 py-[7px] text-[13px] font-medium transition-transform active:scale-[.98]"
-            style={{
-              background: "var(--os-accent)",
-              color: "var(--os-on-accent)",
-              border: "1px solid transparent",
-            }}
-          >
-            Save a copy
-          </button>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-md px-4 py-[7px] text-[13px] font-medium transition-colors hover:bg-[var(--os-hover)]"
+              style={{
+                background: "var(--os-card)",
+                border: "1px solid var(--os-border)",
+                color: "var(--os-fg)",
+              }}
+            >
+              Keep editing
+            </button>
+            <button
+              type="button"
+              data-modal-primary
+              onClick={onCopy}
+              className="rounded-md px-4 py-[7px] text-[13px] font-medium transition-transform active:scale-[.98]"
+              style={{
+                background: "var(--os-accent)",
+                color: "var(--os-on-accent)",
+                border: "1px solid transparent",
+              }}
+            >
+              Save a copy
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </ModalSurface>
   )
 }

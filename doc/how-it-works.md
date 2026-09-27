@@ -3,8 +3,8 @@
 A build document for **Johnpaul K Reju's** portfolio: what exists, how each piece
 is put together, and the reasoning behind the decisions that aren't obvious.
 
-**Scale:** 54 source files · ~17,300 lines · **5 runtime dependencies**
-(`next`, `react`, `react-dom`, `lucide-react`, `zustand`) · 128 kB First Load JS.
+**Runtime dependencies:** `next`, `react`, `react-dom`, `lucide-react`, and `zustand`.
+Historical file counts and bundle measurements have been removed; remeasure the integrated production build.
 
 No UI kit. No animation library. No editor framework. No game engine. Every window,
 menu, slider, card, game board and media control here is written from scratch.
@@ -27,9 +27,9 @@ Two rules held throughout:
 1. **Nothing is a picture of itself.** Windows really drag and resize. The
    filesystem really stores files and they survive a reload. The terminal really
    has a working directory. If it looks interactive, it is.
-2. **Nothing is borrowed.** No Microsoft, Google or VideoLAN assets — no Windows
-   flag, no Chrome dinosaur, no VLC traffic cone, no Segoe fonts, no real Windows
-   sounds. Every mark here was drawn for this project. See §11.
+2. **Use original identity and licensed assets.** Nimbus and Vantage are original
+   portfolio apps. App glyphs come from Lucide under the bundled license notices;
+   see `public/brand/README.md`. Vendor logos are not used for these apps.
 
 ---
 
@@ -116,10 +116,13 @@ says so.
 
 ## 4. Architecture
 
-One route. Two shells. One set of apps.
+One interactive home, readable `/about` and `/resume` routes, and two shells sharing the same apps.
 
 ```
-app/page.tsx                    picks a shell from a media query, mounts PowerOverlay
+app/page.tsx                    server profile fallback + PortfolioShell
+components/os/portfolio-shell  client media query, hydration, PowerOverlay
+components/site/               readable profile components and scoped CSS
+app/about + app/resume         standalone server-rendered pages
 │
 ├── components/os/desktop/      Windows 11 shell
 │     desktop-shell             wallpaper · icons · windows · taskbar · flyouts
@@ -131,7 +134,7 @@ app/page.tsx                    picks a shell from a media query, mounts PowerOv
 ├── components/os/mobile/       phone-shell: Android status bar, grid, drawer, nav
 │
 ├── components/os/app-host      maps an AppId to its component (code-split)
-├── components/os/apps/         21 apps — shared by BOTH shells
+├── components/os/apps/         shared apps — registry in lib/os/app-meta.ts
 │
 └── lib/os/
       content.ts                all portfolio data — single source of truth
@@ -150,8 +153,8 @@ app/page.tsx                    picks a shell from a media query, mounts PowerOv
 ### Three decisions that carried the design
 
 **Content is data, not markup.** Every project, skill and timeline entry lives in
-`lib/os/content.ts`. The apps, the Terminal, the Resume, the search engine and the
-chatbot all render from it — so a fact is written once and can never drift.
+`lib/os/content.ts`. Apps and readable pages consume that source. Keep derived
+copy and any virtual files aligned when changing it; shared data alone cannot prevent stale hardcoded text.
 
 **Apps don't know which shell they're in.** An app is just a component. The desktop
 wraps it in a `WindowFrame`; the phone wraps it in a fullscreen surface and hands it
@@ -300,19 +303,19 @@ rule doesn't cover a JS-driven opacity change.
 
 ## 10. The apps
 
-21 apps. The ten heaviest are **code-split** behind `next/dynamic` and load on
-first open — that's the difference between 191 kB and 128 kB First Load.
+The app registry is `lib/os/app-meta.ts`. Heavy apps are **code-split** behind
+`next/dynamic`; verify bundle sizes after integration.
 
 ### Content apps
 | App | Notes |
 |---|---|
 | **About Me** | Profile, what I bring, contact rows |
-| **Projects** | File-Explorer-style: category sidebar, search, grid/list, details pane |
+| **Projects** | Coming soon; no personal project catalogue is published |
 | **Experience** | Work and education timeline |
 | **Skills** | Task-Manager-style meters that animate up on open |
-| **Awards**, **Lab** | Certifications · experiments in progress |
+| **Awards**, **Lab** | Shared achievements · Lab coming soon |
 | **Contact** | Mail-client compose; sending hands off to the visitor's own mail app |
-| **Resume** | A document in PDF-viewer chrome; prints to real PDF |
+| **Resume** | Browser printing; `/resume` is the readable page, not a prebuilt PDF download |
 
 ### System apps
 
@@ -376,8 +379,8 @@ Full ribbon, A4 page on a grey backdrop, live word/character count, zoom.
 capacity bars derived from real filesystem numbers; restore/empty over soft-deleted
 nodes with original location and date-deleted columns; breadcrumb navigation.
 
-**JP Tube** — a channel page: the intro video, project entries with generated SVG
-thumbnails, subscribe toggle, comments.
+**JP Tube** — a media surface. Placeholder media must be labelled; unpublished
+projects must not be presented as recorded walkthroughs or real engagement counts.
 
 **Minesweeper** — Beginner/Intermediate/Expert, LED counters, reactive face button.
 **The first click is always safe**: mines are generated *after* the first reveal,
@@ -469,12 +472,13 @@ free and every app follows automatically.
 
 ## 14. Original artwork
 
-Everything visual was drawn for this project:
+The interface combines original artwork with licensed Lucide glyphs:
 
 - the **wallpaper** — layered translucent SVG ribbons around a blurred core (three
   passes: first read as a daisy, then as a starburst, before it settled),
 - the **four-pane mark** on the boot and power screens,
-- the app icons — rounded gradient tiles over Lucide glyphs,
+- the app icons — existing colored tiles with pinned Lucide SVGs, bundled fallback
+  copies, and built-in glyphs; sources and notices live in `public/brand/README.md`,
 - the folder, text-file and project glyphs,
 - the offline page's unplugged-connector mark,
 - Minesweeper's mines and flags, Solitaire's cards and backs,
@@ -495,7 +499,7 @@ a deliberate, informed choice.
 Below 768px the whole shell is **replaced**, not squeezed — a desktop metaphor is
 miserable on a phone. Android status bar, clock widget, app grid, dock, swipe-up
 app drawer with search, recents, and a back/home/recents nav bar. Apps open
-fullscreen and reflow; the Projects explorer drops its sidebar for filter chips.
+fullscreen and reflow. Projects and Lab currently display their coming-soon copy.
 
 ---
 
@@ -506,10 +510,7 @@ fullscreen and reflow; the Projects explorer drops its sidebar for filter chips.
 - Snap Layouts flyout, Task View (Win+Tab), Alt+Tab switcher.
 - The global keyboard-shortcut registry (F2, F5, Delete, Ctrl+S work today).
 - Control Panel; Task Manager.
-- The SEO layer: server-rendered content routes, metadata, sitemap, robots,
-  llms.txt, JSON-LD. **This matters** — the OS is one client-rendered route, so
-  search engines currently see an empty desktop, and most AI crawlers don't run
-  JavaScript at all.
+
 
 ## 17. Assets to drop in
 
@@ -520,3 +521,29 @@ fullscreen and reflow; the Projects explorer drops its sidebar for filter chips.
 | `public/sfx/*.mp3` | System sounds | all 8 present |
 
 Swapping any of them is a pure file replacement — no code change.
+
+## 18. Search and readable pages
+
+`app/page.tsx` is a server component. It passes a substantive visible profile fallback
+to the named `PortfolioShell` client component, supplied by the Shell integration.
+Do not replace that component with a test stub to claim a passing integration check.
+
+`/about` and `/resume` read shared `PROFILE`, `SKILL_GROUPS`, and `TIMELINE` data.
+The public resume lists work/education titles, organizations and years without
+repeating unsupported metrics. Employer experience is attributed, not a personal
+project catalogue. Print styles are scoped to `components/site/site.module.css`.
+
+`lib/site.ts` validates `NEXT_PUBLIC_SITE_URL` as an HTTPS origin and defaults to
+`https://www.johnpaulreju.in`. Each substantive page has a unique
+title, description and canonical. Person/WebSite JSON-LD contains no project or
+performance claims. The generated `/opengraph-image` is shared by Open Graph and
+Twitter cards. `/robots.txt` allows crawling and points to `/sitemap.xml`; the
+sitemap contains only `/`, `/about` and `/resume`, without fabricated timestamps.
+
+`/about.md` is a human-readable Markdown companion with a canonical response
+header pointing to `/about` and an `X-Robots-Tag: noindex` to avoid a duplicate
+search result. `/llms.txt` links to it. This is supplementary, not a Google
+requirement or an indexing guarantee. See the [launch checklist](launch-checklist.md).
+
+Legacy screenshots in `docs/` need a Review-lane refresh; old employer-project
+catalogue captures are no longer embedded in the README.

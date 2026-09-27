@@ -67,8 +67,7 @@ export function openAppByName(name: string): ActionResult<string> {
 
 export function closeWindow(id: string): ActionResult {
   if (!wm().windows.some((w) => w.id === id)) return fail("missing", "That window isn't open.")
-  wm().close(id)
-  return ok(undefined)
+  return wm().close(id) ? ok(undefined) : fail("denied", "Close cancelled. The session is still open.")
 }
 
 export function focusWindow(id: string): ActionResult {
@@ -203,7 +202,10 @@ export function toggleTheme(): ActionResult<Theme> {
 }
 
 export const showDesktop = (): ActionResult => (wm().minimizeAll(), ok(undefined))
-export const closeAllWindows = (): ActionResult => (wm().closeAll(), ok(undefined))
+export const closeAllWindows = (): ActionResult => {
+  wm().closeAll()
+  return wm().windows.length ? fail("denied", "Close cancelled. Remaining sessions are still open.") : ok(undefined)
+}
 export const openStart = (): ActionResult => (wm().setStartOpen(true), ok(undefined))
 export const openQuickSettings = (): ActionResult => (wm().setQsOpen(true), ok(undefined))
 export const openNotifications = (): ActionResult => (wm().setNotifOpen(true), ok(undefined))

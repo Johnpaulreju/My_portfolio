@@ -137,8 +137,19 @@ export const APP_META: Record<AppId, AppMeta> = {
     singleton: false, onDesktop: true, pinned: false,
   },
   resume: {
-    id: "resume", title: "Resume.pdf", short: "Resume", icon: "FileBadge",
+    id: "resume", title: "Resume", short: "Resume", icon: "FileBadge",
     tint: ["#fb923c", "#c2410c"], defaultSize: { w: 780, h: 700 },
+    singleton: true, onDesktop: true, pinned: false,
+  },
+  clock: {
+    id: "clock", title: "Clock", short: "Clock", icon: "AlarmClock",
+    tint: ["#818cf8", "#3730a3"], defaultSize: { w: 440, h: 640 },
+    singleton: true, onDesktop: false, pinned: false,
+  },
+  camera: {
+    id: "camera", title: "Camera", short: "Camera", icon: "Camera",
+    // Graphite, darker than Settings and Recycle Bin, like a real lens body.
+    tint: ["#52525b", "#18181b"], defaultSize: { w: 760, h: 580 },
     singleton: true, onDesktop: true, pinned: false,
   },
 }

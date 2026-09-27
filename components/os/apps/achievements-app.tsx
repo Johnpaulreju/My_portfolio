@@ -9,7 +9,7 @@ const GLYPH = { trophy: Trophy, badge: Award, chart: BarChart3 }
 export function AchievementsApp() {
   return (
     <Page>
-      <PageTitle title="Achievements" sub="Certifications, placements and measured wins." />
+      <PageTitle title="Achievements" sub="Certifications and milestones." />
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(216px, 1fr))" }}>
         {ACHIEVEMENTS.map((a) => {
           const Icon = GLYPH[a.icon]

@@ -28,11 +28,11 @@ export function SystemEffects() {
       if (prev === online) return
       useNotify.getState().push({
         appId: "settings",
-        source: "Network",
-        title: online ? "Back online" : "This device lost its connection",
+        source: "Browser connection",
+        title: online ? "Browser connection restored" : "Browser reports offline",
         body: online
-          ? "Web features are available again."
-          : "Your real network dropped. JP OS still works — Web search doesn't.",
+          ? "The browser reports a connection. Web services may still be unavailable."
+          : "The portfolio still works. Web features may be unavailable.",
         sound: online ? "device-connect" : "device-disconnect",
       })
     }

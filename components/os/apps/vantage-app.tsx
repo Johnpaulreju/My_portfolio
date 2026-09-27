@@ -23,7 +23,8 @@ import {
   Shuffle,
   X,
 } from "lucide-react"
-import { ACHIEVEMENTS, LAB, PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE, type Project } from "@/lib/os/content"
+import { ACHIEVEMENTS, LAB, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_LAB, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE, type Project } from "@/lib/os/content"
+import { SITE_URL } from "@/lib/site"
 import type { AppId, WindowInstance } from "@/lib/os/types"
 import { useNotify } from "@/lib/os/notify-store"
 import { useSystem } from "@/lib/os/system-store"
@@ -47,8 +48,7 @@ import { useWM } from "@/lib/os/wm-store"
  * own browser. No vendor marks.
  * ------------------------------------------------------------------ */
 
-const HOST = "johnpaul.dev"
-const ENGINE = "vantage.find"
+const HOST = new URL(SITE_URL).host
 
 /** Brand gradient for the icon tile — bright, no text sits on it. */
 const GRAD = "linear-gradient(135deg, #00a2a8, #006d78)"
@@ -86,21 +86,47 @@ function metaFor(v: View): PageMeta {
     case "start":
       return { url: "vantage://start", title: "Start" }
     case "index":
-      return { url: `https://${HOST}/projects`, title: "All projects" }
+      return { url: "vantage://projects", title: "All projects" }
     case "profile":
-      return { url: `https://${HOST}`, title: `${PROFILE.name} — Portfolio`, external: `https://${PROFILE.github}` }
+      return { url: SITE_URL, title: `${PROFILE.name} — Portfolio`, external: `https://${PROFILE.github}` }
     case "project": {
       const p = projectOf(v.id)
       return p
-        ? { url: `https://${HOST}/projects/${slug(p.title)}`, title: p.title }
-        : { url: `https://${HOST}/projects`, title: "Page not found" }
+        ? { url: `vantage://projects/${slug(p.title)}`, title: p.title }
+        : { url: "vantage://projects", title: PORTFOLIO_STATUS.projects.title }
     }
     case "find":
-      return { url: `https://${ENGINE}/find?q=${encodeURIComponent(v.q)}`, title: `${v.q} — Vantage Find` }
+      return { url: `vantage://find?q=${encodeURIComponent(v.q)}`, title: `${v.q} — Vantage Find` }
   }
 }
 
 const sameView = (a: View, b: View) => metaFor(a).url === metaFor(b).url
+
+/** Internal addresses and legacy project/search addresses stay inside Vantage. */
+function viewForAddress(raw: string): View {
+  const q = raw.trim()
+  const looksLikeUrl = /^(https?:\/\/|www\.|vantage:)/i.test(q) || (/\.[a-z]{2,}(\/|$)/i.test(q) && !/\s/.test(q))
+  if (!looksLikeUrl) return { k: "find", q }
+  try {
+    const address = new URL(/^(https?:\/\/|vantage:)/i.test(q) ? q : `https://${q}`)
+    const path = address.protocol === "vantage:"
+      ? `/${address.host}${address.pathname}`
+      : address.pathname
+    if (path === "/start") return { k: "start" }
+    if (path === "/find" && (address.protocol === "vantage:" || address.host === "vantage.find")) {
+      const search = address.searchParams.get("q") ?? ""
+      return search ? { k: "find", q: search } : { k: "start" }
+    }
+    if (path === "/projects" || path.startsWith("/projects/")) {
+      const projectSlug = decodeURIComponent(path.slice("/projects/".length))
+      const project = PROJECTS.find((p) => slug(p.title) === projectSlug || p.id === projectSlug)
+      return project ? { k: "project", id: project.id } : { k: "index" }
+    }
+    return { k: "profile" }
+  } catch {
+    return { k: "find", q }
+  }
+}
 
 /* ================================================================== *
  * Vantage Find — a small index over lib/os/content.ts.
@@ -133,8 +159,8 @@ function buildRecords(): Rec[] {
     id: "profile",
     kind: "Profile",
     title: `${PROFILE.name} — ${PROFILE.title}`,
-    sub: PROFILE.tagline,
-    hay: `${PROFILE.name} ${PROFILE.title} ${PROFILE.tagline} ${PROFILE.location} ${PROFILE.uvp.join(" ")} about who bio profile portfolio`.toLowerCase(),
+    sub: `${PROFILE.next}. ${PROFILE.tagline}`,
+    hay: `${PROFILE.name} ${PROFILE.headline} genai ${PROFILE.role} ${PROFILE.tagline} ${PROFILE.learning} ${PROFILE.location} ${PROFILE.uvp.join(" ")} about who bio profile portfolio`.toLowerCase(),
     view: { k: "profile" },
     appId: "about",
   })
@@ -142,18 +168,40 @@ function buildRecords(): Rec[] {
     id: "contact",
     kind: "Profile",
     title: `Contact ${PROFILE.name}`,
-    sub: `${PROFILE.email} · ${PROFILE.phone} · ${PROFILE.location}`,
-    hay: `contact hire hiring email reach available availability ${PROFILE.email} ${PROFILE.phone} ${PROFILE.github} ${PROFILE.linkedin}`.toLowerCase(),
+    sub: `${PROFILE.availability} · ${PROFILE.email} · ${PROFILE.location}`,
+    hay: `contact hire hiring email reach available availability ${PROFILE.availability} ${PROFILE.email} ${PROFILE.phone} ${PROFILE.github} ${PROFILE.linkedin}`.toLowerCase(),
     appId: "contact",
   })
   out.push({
     id: "resume",
     kind: "Profile",
     title: `Résumé — ${PROFILE.name}`,
-    sub: PROFILE.uvp[2],
-    hay: `resume cv curriculum vitae download pdf ${PROFILE.title}`.toLowerCase(),
+    sub: "Open the résumé view, then Print / Save as PDF.",
+    hay: `resume cv curriculum vitae print save pdf ${PROFILE.title}`.toLowerCase(),
     appId: "resume",
   })
+
+  if (!SHOW_PROJECTS || PROJECTS.length === 0) {
+    out.push({
+      id: "projects-status",
+      kind: "Project",
+      title: PORTFOLIO_STATUS.projects.title,
+      sub: PORTFOLIO_STATUS.projects.body,
+      hay: `projects work portfolio ${PORTFOLIO_STATUS.projects.title} ${PORTFOLIO_STATUS.projects.body}`.toLowerCase(),
+      view: { k: "index" },
+      appId: "projects",
+    })
+  }
+  if (!SHOW_LAB || LAB.length === 0) {
+    out.push({
+      id: "lab-status",
+      kind: "Lab",
+      title: PORTFOLIO_STATUS.lab.title,
+      sub: PORTFOLIO_STATUS.lab.body,
+      hay: `lab experiments ${PORTFOLIO_STATUS.lab.title} ${PORTFOLIO_STATUS.lab.body}`.toLowerCase(),
+      appId: "lab",
+    })
+  }
 
   for (const p of PROJECTS) {
     out.push({
@@ -167,7 +215,7 @@ function buildRecords(): Rec[] {
     })
   }
   for (const g of SKILL_GROUPS) {
-    const names = g.items.map((i) => i.name)
+    const names = g.items.map((i) => `${i.name} (${i.status})`)
     out.push({
       id: `s-${slug(g.label)}`,
       kind: "Skill",
@@ -182,7 +230,7 @@ function buildRecords(): Rec[] {
       id: `t-${t.year}-${slug(t.org)}`,
       kind: t.kind === "work" ? "Role" : "Study",
       title: `${t.label} — ${t.org}`,
-      sub: `${t.year} · ${t.facts.join(" · ")}`,
+      sub: `${t.year} · ${t.kind === "work" ? "Employment history" : "Education"} · ${t.facts.join(" · ")}`,
       hay: `${t.label} ${t.org} ${t.year} ${t.facts.join(" ")} ${t.kind === "work" ? "job role career employer" : "education degree college university"}`.toLowerCase(),
       appId: "experience",
     })
@@ -407,7 +455,7 @@ type PageApi = {
  * ================================================================== */
 
 const NEWEST = [...PROJECTS].sort((a, b) => Number(b.year) - Number(a.year))[0]
-const MEASURED = PROJECTS.find((p) => /\d+\s*%/.test(p.desc)) ?? PROJECTS[1]
+const SECOND_PROJECT = PROJECTS.find((p) => p.id !== NEWEST?.id)
 
 function StartPage({ api }: { api: PageApi }) {
   return (
@@ -415,11 +463,23 @@ function StartPage({ api }: { api: PageApi }) {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <Wordmark />
         <p className="text-[12px]" style={{ color: "var(--os-muted)" }}>
-          {PROFILE.name} · {PROFILE.title}
+          {PROFILE.name} · {PROFILE.headline}
         </p>
       </div>
 
-      <CompareCard api={api} />
+      {SHOW_PROJECTS && PROJECTS.length > 0 ? <ProjectFeed api={api} /> : <ProjectsSoon api={api} />}
+
+      <p className="mt-8 text-[11px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+        Project pages and search stay inside Vantage. Links marked with an arrow open in your browser.
+      </p>
+    </div>
+  )
+}
+
+function ProjectFeed({ api }: { api: PageApi }) {
+  return (
+    <>
+      {PROJECTS.length > 1 && <CompareCard api={api} />}
 
       <div className="mb-3 mt-7 flex items-baseline gap-2">
         <h2 className="text-[13.5px] font-semibold" style={{ color: "var(--os-fg)" }}>
@@ -448,18 +508,34 @@ function StartPage({ api }: { api: PageApi }) {
             <FeedCard key={p.id} project={p} api={api} />
           ))}
       </div>
+    </>
+  )
+}
 
-      <p className="mt-8 text-[11px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-        Nimbus and Vantage are original. No vendor marks ship in this repo.
+function ProjectsSoon({ api }: { api: PageApi }) {
+  return (
+    <section
+      className="rounded-xl p-5"
+      style={{ background: "var(--vt-soft)", border: "1px solid var(--vt-line)" }}
+    >
+      <h2 className="text-[13.5px] font-semibold" style={{ color: "var(--os-fg)" }}>
+        {PORTFOLIO_STATUS.projects.title}
+      </h2>
+      <p className="mt-1 text-[12.5px]" style={{ color: "var(--os-muted)" }}>
+        {PORTFOLIO_STATUS.projects.body}
       </p>
-    </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <GhostButton onClick={() => api.nav({ k: "profile" })}>Portfolio home</GhostButton>
+        <GhostButton onClick={() => api.openApp("contact")}>Contact</GhostButton>
+      </div>
+    </section>
   )
 }
 
 function CompareCard({ api }: { api: PageApi }) {
   const theme = useWM((s) => s.theme)
-  const [a, setA] = useState(NEWEST.id)
-  const [b, setB] = useState(MEASURED.id === NEWEST.id ? PROJECTS[0].id : MEASURED.id)
+  const [a, setA] = useState(NEWEST?.id ?? "")
+  const [b, setB] = useState(SECOND_PROJECT?.id ?? "")
 
   const shuffle = () => {
     const i = Math.floor(Math.random() * PROJECTS.length)
@@ -598,6 +674,9 @@ function FeedCard({ project, api }: { project: Project; api: PageApi }) {
  * ================================================================== */
 
 function ProjectPage({ id, api }: { id: string; api: PageApi }) {
+  if (!SHOW_PROJECTS || PROJECTS.length === 0) {
+    return <div className="p-5"><ProjectsSoon api={api} /></div>
+  }
   const p = projectOf(id)
   if (!p) {
     return (
@@ -621,7 +700,7 @@ function ProjectPage({ id, api }: { id: string; api: PageApi }) {
   return (
     <div className="mx-auto w-full max-w-[640px] px-5 py-5">
       <p className="mb-3 truncate text-[11px]" style={{ color: "var(--os-muted)" }}>
-        {HOST} / projects / {slug(p.title)}
+        Vantage / projects / {slug(p.title)}
       </p>
 
       <h1 className="text-[19px] font-semibold leading-tight" style={{ color: "var(--os-fg)" }}>
@@ -680,10 +759,17 @@ function ProjectPage({ id, api }: { id: string; api: PageApi }) {
 const CATEGORIES = Array.from(new Set(PROJECTS.map((p) => p.category)))
 
 function IndexPage({ api }: { api: PageApi }) {
+  if (!SHOW_PROJECTS || PROJECTS.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-[860px] px-6 py-6">
+        <ProjectsSoon api={api} />
+      </div>
+    )
+  }
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 py-6">
       <p className="mb-1 text-[11px]" style={{ color: "var(--os-muted)" }}>
-        {HOST} / projects
+        Vantage / projects
       </p>
       <h1 className="mb-5 text-[19px] font-semibold" style={{ color: "var(--os-fg)" }}>
         All projects
@@ -753,7 +839,7 @@ function ProfilePage({ api }: { api: PageApi }) {
             {PROFILE.name}
           </h1>
           <p className="text-[13px]" style={{ color: "var(--vt-ink)" }}>
-            {PROFILE.title}
+            {PROFILE.headline}
           </p>
           <p className="mt-1 flex items-center gap-1.5 text-[12px]" style={{ color: "var(--os-muted)" }}>
             <MapPin size={12} />
@@ -764,6 +850,9 @@ function ProfilePage({ api }: { api: PageApi }) {
 
       <p className="mt-5 text-[14px] leading-relaxed" style={{ color: "var(--os-fg)" }}>
         {PROFILE.tagline}
+      </p>
+      <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+        {PROFILE.learning} {PROFILE.availability}
       </p>
 
       <ul className="mt-4 space-y-2">
@@ -779,7 +868,7 @@ function ProfilePage({ api }: { api: PageApi }) {
         <GhostButton onClick={() => api.openApp("about")}>About</GhostButton>
         <GhostButton onClick={() => api.openApp("contact")}>Contact</GhostButton>
         <GhostButton onClick={() => api.openApp("resume")}>Résumé</GhostButton>
-        <GhostButton onClick={() => api.nav({ k: "index" })}>Projects</GhostButton>
+        {SHOW_PROJECTS && <GhostButton onClick={() => api.nav({ k: "index" })}>Projects</GhostButton>}
       </div>
 
       <div className="mt-6 grid gap-2" style={{ gridTemplateColumns: api.cols === 2 ? "repeat(2, minmax(0,1fr))" : "minmax(0,1fr)" }}>
@@ -1180,18 +1269,8 @@ export function VantageApp({ win }: { win: WindowInstance }) {
     if (id === activeId) setActiveId(rest[Math.min(idx, rest.length - 1)].id)
   }
 
-  /** Something that looks like a host navigates; everything else searches. */
   const submitOmni = (raw: string) => {
-    const q = raw.trim()
-    if (!q) return
-    const looksLikeUrl = /^(https?:\/\/|www\.|vantage:)/i.test(q) || (/\.[a-z]{2,}(\/|$)/i.test(q) && !/\s/.test(q))
-    if (looksLikeUrl) {
-      const l = q.toLowerCase()
-      if (l.includes("vantage:") || l.includes("start")) return nav({ k: "start" })
-      if (l.includes("/projects") || l.endsWith("projects")) return nav({ k: "index" })
-      return nav({ k: "profile" })
-    }
-    nav({ k: "find", q })
+    if (raw.trim()) nav(viewForAddress(raw))
   }
 
   const apiFor = (i: PaneIdx): PageApi => ({
@@ -1297,7 +1376,7 @@ export function VantageApp({ win }: { win: WindowInstance }) {
           onSubmit={submitOmni}
           onPick={(r) => (r.view ? nav(r.view) : nav({ k: "find", q: r.title }))}
           placeholder={meta.url}
-          secure={view.k !== "start"}
+          secure={view.k === "profile"}
         />
 
         {meta.external && (
@@ -1839,12 +1918,16 @@ function MenuItem({ children, onClick }: { children: ReactNode; onClick: () => v
 
 const COLLECTIONS: { label: string; sub: string; view: View }[] = [
   { label: "Portfolio home", sub: `${PROFILE.name} — ${PROFILE.title}`, view: { k: "profile" } },
-  { label: "All projects", sub: `${PROJECTS.length} across ${CATEGORIES.length} categories`, view: { k: "index" } },
-  ...CATEGORIES.map((c) => ({
-    label: c,
-    sub: `${PROJECTS.filter((p) => p.category === c).length} projects`,
-    view: { k: "find", q: c } as View,
-  })),
+  ...(SHOW_PROJECTS
+    ? [
+        { label: "All projects", sub: `${PROJECTS.length} across ${CATEGORIES.length} categories`, view: { k: "index" } as View },
+        ...CATEGORIES.map((c) => ({
+          label: c,
+          sub: `${PROJECTS.filter((p) => p.category === c).length} projects`,
+          view: { k: "find", q: c } as View,
+        })),
+      ]
+    : []),
 ]
 
 function RailPanelView({

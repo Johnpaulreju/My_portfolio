@@ -127,3 +127,27 @@ export function Button({
     </button>
   )
 }
+
+/** Placeholder for a section that exists but isn't published yet. */
+export function ComingSoon({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <span
+        className="grid h-14 w-14 place-items-center rounded-2xl"
+        style={{
+          background: "color-mix(in srgb, var(--os-accent) 20%, transparent)",
+          color: "var(--os-accent-fg)",
+        }}
+      >
+        {icon}
+      </span>
+      <h1 className="text-[20px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
+        {title}
+      </h1>
+      <Pill tone="accent">Coming soon</Pill>
+      <p className="max-w-[320px] text-[13px]" style={{ color: "var(--os-muted)" }}>
+        {body}
+      </p>
+    </div>
+  )
+}

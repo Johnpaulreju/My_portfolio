@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import type { FSNode, FSNodeKind } from "./types"
-import { PROFILE } from "./content"
+import { PORTFOLIO_STATUS, PROFILE } from "./content"
 
 const STORAGE_KEY = "jp-os-fs-v2"
 
@@ -13,11 +13,14 @@ const nextId = () => `n${Date.now().toString(36)}${(++seq).toString(36)}`
 export type WriteResult = { ok: true; id?: string } | { ok: false; reason: "locked" | "missing" }
 
 const README = [
-  `${PROFILE.name} — ${PROFILE.title}`,
+  `${PROFILE.name} — ${PROFILE.headline}`,
   "",
   PROFILE.tagline,
+  PROFILE.role,
+  PROFILE.availability,
+  PROFILE.learning,
   "",
-  "This desktop is a real one, not a picture of one:",
+  "Try this portfolio desktop in your browser:",
   "  • Right-click the wallpaper to make a new folder or text file",
   "  • Drag icons anywhere you like, then right-click → Refresh",
   "  • Double-click any file to open it; press F2 to rename, Delete to bin it",
@@ -29,11 +32,17 @@ const README = [
   `Reach me: ${PROFILE.email} · ${PROFILE.phone}`,
 ].join("\n")
 
-const IDEAS =
-  "Things I want to build next:\n\n" +
-  "- Sign-language recognizer (in progress)\n" +
-  "- Voice-modulation agents (in progress)\n" +
-  "- Something with WebGPU\n"
+const IDEAS = [
+  "Learning and personal work",
+  "",
+  PROFILE.learning,
+  "",
+  PORTFOLIO_STATUS.projects.title,
+  PORTFOLIO_STATUS.projects.body,
+  "",
+  PORTFOLIO_STATUS.lab.title,
+  PORTFOLIO_STATUS.lab.body,
+].join("\n")
 
 /**
  * Seeded nodes carry Johnpaul's own words, so they are `locked`: readable and
@@ -46,7 +55,7 @@ const SEED: FSNode[] = [
   { id: "seed-readme", name: "Readme.txt", kind: "text", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, body: README },
   { id: "seed-notes", name: "My Notes", kind: "folder", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH },
   { id: "seed-ideas", name: "ideas.txt", kind: "text", parentId: "seed-notes", locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, body: IDEAS },
-  { id: "seed-intro", name: "Meet Johnpaul.mp4", kind: "video", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, src: "/media/intro.mp4" },
+  { id: "seed-intro", name: "Video player demo.mp4", kind: "video", parentId: null, locked: true, createdAt: SEED_EPOCH, modifiedAt: SEED_EPOCH, src: "/media/intro.mp4" },
 ]
 
 const SEED_IDS = new Set(SEED.map((n) => n.id))

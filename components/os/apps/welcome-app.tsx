@@ -1,40 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import Link from "next/link"
 import { ArrowRight, Github, Linkedin, Mail } from "lucide-react"
 import { PROFILE } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
 import type { WindowInstance } from "@/lib/os/types"
 
-/** Swap for the real photograph by dropping it at public/media/jp-portrait.jpg. */
-const PORTRAIT = "/media/jp-portrait.jpg"
-
-/** The 4-5 words for the right pane. */
-const TAGLINE = "Fusing creativity, technology and intelligence."
-
 export function WelcomeApp({ win }: { win: WindowInstance }) {
-  const { open, close } = useWM()
-  const [photoOk, setPhotoOk] = useState(true)
+  const close = useWM((state) => state.close)
 
   return (
     <div className="flex h-full min-h-0">
-      {/* Left pane - the photograph, bleeding to the window edge. */}
+      {/* Left pane - the current initials artwork. */}
       <div
         className="relative hidden w-[42%] shrink-0 overflow-hidden sm:block"
         style={{ background: "linear-gradient(150deg, #1b3b6f, #0a1230)" }}
       >
-        {photoOk ? (
-          // eslint-disable-next-line @next/next/no-img-element -- images.unoptimized is on; this is a static asset
-          <img
-            src={PORTRAIT}
-            alt={`${PROFILE.name}, ${PROFILE.title}`}
-            className="h-full w-full object-cover"
-            onError={() => setPhotoOk(false)}
-          />
-        ) : (
-          <PortraitPlaceholder />
-        )}
-        {/* Keeps the caption legible whatever the photo does. */}
+        <InitialsArtwork />
+        {/* Keeps the location caption legible. */}
         <div
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-1/3"
@@ -53,11 +36,11 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
             className="mb-4 text-[30px] font-light leading-[1.18] tracking-tight"
             style={{ color: "var(--os-fg)" }}
           >
-            {TAGLINE}
+            {PROFILE.tagline}
           </h1>
           <p className="mb-6 max-w-[42ch] text-[13.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-            I&rsquo;m {PROFILE.name}, {PROFILE.title.toLowerCase()}. This whole portfolio is a desktop —
-            open the apps, drag the windows, poke around. Everything works.
+            I&rsquo;m {PROFILE.name}, a software engineer on my way to becoming a GenAI engineer. Look
+            around, open my resume, or say hi. My projects are still compiling.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -67,7 +50,7 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-6">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-6">
           <button
             type="button"
             onClick={() => close(win.id)}
@@ -76,18 +59,20 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
           >
             Just let me look around
           </button>
-          <button
-            type="button"
-            autoFocus
-            onClick={() => {
-              open("about")
-              close(win.id)
-            }}
+          <Link
+            href="/resume"
+            className="rounded-md px-4 py-[7px] text-[13px] transition-colors hover:bg-[var(--os-hover)]"
+            style={{ color: "var(--os-fg)", border: "1px solid var(--os-border)" }}
+          >
+            View resume
+          </Link>
+          <Link
+            href="/about"
             className="flex items-center gap-1.5 rounded-md px-4 py-[7px] text-[13px] font-medium transition-transform active:scale-[.98]"
             style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
           >
             Start here <ArrowRight size={14} />
-          </button>
+          </Link>
         </div>
       </div>
     </div>
@@ -109,8 +94,8 @@ function Chip({ icon, label, href }: { icon: React.ReactNode; label: string; hre
   )
 }
 
-/** Shown until the real photograph lands - deliberately designed, never a broken frame. */
-function PortraitPlaceholder() {
+/** Current identity artwork; no portrait asset is assumed. */
+function InitialsArtwork() {
   return (
     <div className="relative grid h-full w-full place-items-center">
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden>
@@ -127,11 +112,6 @@ function PortraitPlaceholder() {
       <span className="relative grid h-24 w-24 place-items-center rounded-full bg-white/10 text-[30px] font-light text-white backdrop-blur">
         {PROFILE.initials}
       </span>
-      <p className="absolute bottom-16 px-6 text-center text-[11px] leading-relaxed text-white/45">
-        Portrait goes here
-        <br />
-        public/media/jp-portrait.jpg
-      </p>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { useSessionWork } from "@/lib/os/session-work"
+
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useFS } from "@/lib/os/fs-store"
 import { playSfx } from "@/lib/os/sfx"
@@ -16,7 +18,9 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
   const file = fileId ? get(fileId) : undefined
 
   const [draft, setDraft] = useState(file?.body ?? "")
+  const savedDraft = useRef(file?.body ?? "")
   const [dirty, setDirty] = useState(false)
+  useSessionWork(dirty)
   const [wrap, setWrap] = useState(true)
   const [caret, setCaret] = useState({ ln: 1, col: 1 })
   const [menu, setMenu] = useState<"file" | "format" | null>(null)
@@ -24,7 +28,8 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
 
   // Adopt the file's text whenever this window is pointed at a different file.
   useEffect(() => {
-    setDraft(file?.body ?? "")
+    savedDraft.current = file?.body ?? ""
+    setDraft(savedDraft.current)
     setDirty(false)
   }, [fileId, file?.body])
 
@@ -46,6 +51,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
       setPayload(win.id, { fileId: id })
       setTitle(win.id, "Untitled.txt — Notepad")
     }
+    savedDraft.current = draft
     setDirty(false)
   }
 
@@ -56,6 +62,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
     setBody(id, draft)
     setPayload(win.id, { fileId: id })
     setTitle(win.id, `${name} — Notepad`)
+    savedDraft.current = draft
     setDirty(false)
   }
 
@@ -89,6 +96,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
     <div className="relative flex h-full min-h-0 flex-col" onPointerDown={() => setMenu(null)}>
       <SaveGuard
         open={guard}
+        returnFocusRef={areaRef}
         fileName={file?.name ?? "this file"}
         onKeepEditing={() => setGuard(false)}
         onSaveCopy={() => {
@@ -98,6 +106,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
             setPayload(win.id, { fileId: res.id })
             const copy = useFS.getState().get(res.id)
             if (copy) setTitle(win.id, `${copy.name} — Notepad`)
+            savedDraft.current = draft
             setDirty(false)
           }
         }}
@@ -141,7 +150,7 @@ export function NotepadApp({ win }: { win: WindowInstance }) {
         spellCheck={false}
         onChange={(e) => {
           setDraft(e.target.value)
-          setDirty(true)
+          setDirty(e.target.value !== savedDraft.current)
           updateCaret()
         }}
         onKeyUp={updateCaret}

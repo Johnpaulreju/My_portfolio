@@ -32,7 +32,7 @@ export const HOME_SSID = "JP's Hotspot"
 const NETWORKS: WifiNetwork[] = [
   { ssid: HOME_SSID, strength: 3, secured: true, known: true },
   { ssid: "Bangalore_Fiber_5G", strength: 3, secured: true, known: false },
-  { ssid: "Odyssey-Guest", strength: 2, secured: true, known: false },
+  { ssid: "It Works On My Wi-Fi", strength: 2, secured: true, known: false },
   { ssid: "CAFE_FREE_WIFI", strength: 1, secured: false, known: false },
 ]
 
@@ -172,7 +172,7 @@ export const useSystem = create<SystemState>((set, get) => ({
       set({ wifiOn: false, conn: "disconnected", ssid: null })
       useNotify.getState().push({
         appId: "settings",
-        source: "Network",
+        source: "Demo network",
         title: "No internet",
         body: "Wi-Fi is off. Turn it back on from Quick Settings.",
         sound: "device-disconnect",
@@ -184,9 +184,9 @@ export const useSystem = create<SystemState>((set, get) => ({
       set({ conn: "connected", ssid: HOME_SSID })
       useNotify.getState().push({
         appId: "settings",
-        source: "Network",
+        source: "Demo network",
         title: `Connected to ${HOME_SSID}`,
-        body: "Secured · You're online",
+        body: "Simulated connection. This does not change your device network.",
         sound: "device-connect",
       })
     }, 1100)
@@ -201,9 +201,9 @@ export const useSystem = create<SystemState>((set, get) => ({
       set({ conn: "connected", ssid })
       useNotify.getState().push({
         appId: "settings",
-        source: "Network",
+        source: "Demo network",
         title: `Connected to ${ssid}`,
-        body: "Secured · You're online",
+        body: "Simulated connection. This does not change your device network.",
         sound: "device-connect",
       })
     }, 1100)
@@ -237,7 +237,7 @@ export const useSystem = create<SystemState>((set, get) => ({
     })
     useNotify.getState().push({
       appId: "settings",
-      source: "Network",
+      source: "Demo network",
       title: "Airplane mode is on",
       body: "Wireless is off. You can turn Wi-Fi back on separately.",
       sound: "device-disconnect",

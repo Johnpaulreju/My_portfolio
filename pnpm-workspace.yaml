@@ -1,2 +1,6 @@
 allowBuilds:
   unrs-resolver: true
+
+# Next 15 pins an older PostCSS; use the audited compatible 8.x release.
+overrides:
+  "next@15.5.26>postcss": 8.5.28

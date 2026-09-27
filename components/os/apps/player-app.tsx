@@ -108,7 +108,7 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
       .filter((n) => n.kind === "video" && !n.deletedAt)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((n) => ({ id: n.id, name: n.name, src: n.src ?? "" }))
-    return vids.length > 0 ? vids : [{ id: "fallback", name: "Meet Johnpaul.mp4", src: FALLBACK_SRC }]
+    return vids.length > 0 ? vids : [{ id: "fallback", name: "Portfolio player demo.mp4", src: FALLBACK_SRC }]
   }, [nodes])
 
   const payloadId = win.payload?.fileId as string | undefined

@@ -1,7 +1,7 @@
 "use client"
 
-import { Download, Printer } from "lucide-react"
-import { ACHIEVEMENTS, PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
+import { Printer } from "lucide-react"
+import { ACHIEVEMENTS, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
 
 export function ResumeApp() {
   // Rendered as a document "page" floating on a grey viewer, like a PDF reader.
@@ -14,29 +14,23 @@ export function ResumeApp() {
         <span className="flex-1 truncate text-[12.5px]" style={{ color: "var(--os-fg)" }}>
           Resume — {PROFILE.name}
         </span>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] hover:bg-[var(--os-hover)]"
+        <a
+          href="/resume"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] hover:bg-[var(--os-hover)]"
           style={{ color: "var(--os-fg)" }}
         >
-          <Printer size={14} /> Print
-        </button>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] hover:bg-[var(--os-hover)]"
-          style={{ color: "var(--os-fg)" }}
-        >
-          <Download size={14} /> Save as PDF
-        </button>
+          <Printer size={14} aria-hidden="true" />
+          <span>Print / Save as PDF<small className="block text-[10px]">Opens printable resume in a new tab</small></span>
+        </a>
       </div>
 
       <div className="os-scroll min-h-0 flex-1 overflow-y-auto bg-[#525252] p-5">
-        <article className="mx-auto max-w-[660px] bg-white p-10 text-[#1a1a1a] shadow-xl">
+        <article data-resume-document className="mx-auto max-w-[660px] bg-white p-5 text-[#1a1a1a] shadow-xl sm:p-10">
           <header className="mb-5 border-b border-neutral-300 pb-4">
             <h1 className="text-[26px] font-bold tracking-tight">{PROFILE.name}</h1>
-            <p className="text-[14px] text-neutral-700">{PROFILE.title}</p>
+            <p className="text-[14px] text-neutral-700">{PROFILE.headline}</p>
             <p className="mt-2 text-[11.5px] text-neutral-600">
               {PROFILE.location} · {PROFILE.email} · {PROFILE.phone}
             </p>
@@ -56,44 +50,57 @@ export function ResumeApp() {
             </ul>
           </Section>
 
-          <Section title="Experience & Education">
-            {TIMELINE.map((e) => (
-              <div key={`${e.year}-${e.label}`} className="mb-3">
-                <div className="flex items-baseline justify-between">
-                  <p className="text-[13px] font-semibold">
-                    {e.label} — <span className="font-normal">{e.org}</span>
-                  </p>
-                  <span className="text-[11.5px] text-neutral-600">{e.year}</span>
-                </div>
-                <ul className="mt-1 space-y-0.5">
-                  {e.facts.map((f) => (
-                    <li key={f} className="text-[12px] leading-relaxed text-neutral-700">
-                      • {f}
-                    </li>
-                  ))}
-                </ul>
+          <Section title="Current work">
+            <p className="text-[13px] font-semibold">{PROFILE.role}</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-700">{PROFILE.availability}</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-700">{PROFILE.learning}</p>
+          </Section>
+
+          <Section title="Employer history">
+            <TimelineEntries kind="work" />
+          </Section>
+
+          <Section title="Education">
+            <TimelineEntries kind="education" />
+          </Section>
+
+          <Section title="Skills">
+            {SKILL_GROUPS.map((group) => (
+              <div key={group.label} className="mb-2 text-[12.5px] leading-relaxed">
+                <p className="font-semibold">{group.label}</p>
+                {(["Building", "Studying"] as const).map((status) => {
+                  const items = group.items.filter((skill) => skill.status === status)
+                  return items.length > 0 ? (
+                    <p key={status} className="text-neutral-700">
+                      <span className="font-medium">{status}: </span>
+                      {items.map((skill) => skill.name).join(", ")}
+                    </p>
+                  ) : null
+                })}
               </div>
             ))}
           </Section>
 
-          <Section title="Skills">
-            {SKILL_GROUPS.map((g) => (
-              <p key={g.label} className="mb-1 text-[12.5px] leading-relaxed">
-                <span className="font-semibold">{g.label}: </span>
-                <span className="text-neutral-700">{g.items.map((s) => s.name).join(", ")}</span>
-              </p>
-            ))}
-          </Section>
-
-          <Section title={`Selected Projects (${PROJECTS.length} total)`}>
-            {PROJECTS.slice(0, 6).map((p) => (
-              <p key={p.id} className="mb-1 text-[12.5px] leading-relaxed">
-                <span className="font-semibold">{p.title}</span>
-                <span className="text-neutral-600"> — {p.stack}. </span>
-                <span className="text-neutral-700">{p.desc}</span>
-              </p>
-            ))}
-          </Section>
+          {SHOW_PROJECTS && PROJECTS.length > 0 ? (
+            <Section title="Selected Projects">
+              {PROJECTS.slice(0, 6).map((p) => (
+                <p key={p.id} className="mb-1 text-[12.5px] leading-relaxed">
+                  <span className="font-semibold">{p.title}</span>
+                  <span className="text-neutral-600"> — {p.stack}. </span>
+                  <span className="text-neutral-700">{p.desc}</span>
+                </p>
+              ))}
+            </Section>
+          ) : (
+            <Section title="Personal work">
+              {[PORTFOLIO_STATUS.projects, PORTFOLIO_STATUS.lab].map((status) => (
+                <p key={status.title} className="mb-2 text-[12.5px] leading-relaxed">
+                  <span className="font-semibold">{status.title}. </span>
+                  <span className="text-neutral-700">{status.body}</span>
+                </p>
+              ))}
+            </Section>
+          )}
 
           <Section title="Achievements">
             <ul className="space-y-0.5">
@@ -108,6 +115,26 @@ export function ResumeApp() {
       </div>
     </div>
   )
+}
+
+function TimelineEntries({ kind }: { kind: "work" | "education" }) {
+  return TIMELINE.filter((event) => event.kind === kind).map((event) => (
+    <div key={`${event.year}-${event.label}`} className="mb-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-[13px] font-semibold">
+          {event.label} — <span className="font-normal">{event.org}</span>
+        </p>
+        <span className="text-[11.5px] text-neutral-600">{event.year}</span>
+      </div>
+      <ul className="mt-1 space-y-0.5">
+        {event.facts.map((fact) => (
+          <li key={fact} className="text-[12px] leading-relaxed text-neutral-700">
+            • {fact}
+          </li>
+        ))}
+      </ul>
+    </div>
+  ))
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
