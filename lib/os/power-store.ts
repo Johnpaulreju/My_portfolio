@@ -70,25 +70,7 @@ export const usePower = create<PowerStore>((set, get) => ({
     if (get().state !== "off") return
     unlockAudio()
 
-    // A returning visitor has already seen the boot. Showing it again is a toll
-    // booth at the exact moment they are least patient.
-    let seen = false
-    try {
-      seen = localStorage.getItem("jp-os-booted") === "1"
-    } catch {
-      /* private mode - treat as a first visit */
-    }
-    if (seen) {
-      clear()
-      set({ state: "running" })
-      return
-    }
-    try {
-      localStorage.setItem("jp-os-booted", "1")
-    } catch {
-      /* ignore */
-    }
-
+    // Every power-on boots with the chime; the boot screen has a Skip button.
     playSfx("boot")
     clear()
     set({ state: "booting" })

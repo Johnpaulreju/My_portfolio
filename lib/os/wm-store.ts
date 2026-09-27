@@ -37,6 +37,7 @@ function cascade(index: number, size: Size, bounds: Size): Point {
 }
 
 export type PhonePanel = "closed" | "compact" | "expanded" | "drawer" | "recents"
+export type NotifView = "panel" | "calendar"
 
 type WMState = {
   phonePanel: PhonePanel
@@ -49,6 +50,8 @@ type WMState = {
   /** Tray flyouts. Mutually exclusive with each other and with startOpen. */
   qsOpen: boolean
   notifOpen: boolean
+  /** What the notifications flyout shows: the bell's side panel or the clock's calendar. */
+  notifView: NotifView
   /** Usable desktop area (viewport minus taskbar). */
   bounds: Size
 
@@ -59,7 +62,7 @@ type WMState = {
   toggleTheme: () => void
   setStartOpen: (v: boolean) => void
   setQsOpen: (v: boolean) => void
-  setNotifOpen: (v: boolean) => void
+  setNotifOpen: (v: boolean, view?: NotifView) => void
   closeFlyouts: () => void
 
   open: (appId: AppId, payload?: Record<string, unknown>, title?: string) => string
@@ -88,6 +91,7 @@ export const useWM = create<WMState>((set, get) => ({
   startOpen: false,
   qsOpen: false,
   notifOpen: false,
+  notifView: "panel",
   bounds: { w: 1280, h: 720 },
 
   setBounds: (bounds) =>
@@ -129,7 +133,7 @@ export const useWM = create<WMState>((set, get) => ({
   // Opening any one shell surface closes the others - two open at once is the classic bug here.
   setStartOpen: (startOpen) => set({ startOpen: !isPhoneViewport() && startOpen, qsOpen: false, notifOpen: false, phonePanel: isPhoneViewport() && startOpen ? "drawer" : "closed" }),
   setQsOpen: (qsOpen) => set({ qsOpen: !isPhoneViewport() && qsOpen, startOpen: false, notifOpen: false, phonePanel: isPhoneViewport() && qsOpen ? "compact" : "closed" }),
-  setNotifOpen: (notifOpen) => set({ notifOpen: !isPhoneViewport() && notifOpen, startOpen: false, qsOpen: false, phonePanel: isPhoneViewport() && notifOpen ? "compact" : "closed" }),
+  setNotifOpen: (notifOpen, notifView = "panel") => set({ notifOpen: !isPhoneViewport() && notifOpen, notifView, startOpen: false, qsOpen: false, phonePanel: isPhoneViewport() && notifOpen ? "compact" : "closed" }),
   closeFlyouts: () => set({ startOpen: false, qsOpen: false, notifOpen: false, phonePanel: "closed" }),
 
   open: (appId, payload, title) => {

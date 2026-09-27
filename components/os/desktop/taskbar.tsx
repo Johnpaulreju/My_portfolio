@@ -121,9 +121,11 @@ export function Taskbar({
 }
 
 function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]) => void }) {
-  const { qsOpen, setQsOpen, notifOpen, setNotifOpen } = useWM()
+  const { qsOpen, setQsOpen, notifOpen, notifView, setNotifOpen } = useWM()
   const sys = useSystem()
-  const unread = useNotify((s) => s.unread)
+  const unread = useNotify((s) => s.unread + s.funUnread)
+  const calendarOpen = notifOpen && notifView === "calendar"
+  const panelOpen = notifOpen && notifView === "panel"
   const [now, setNow] = useState<Date | null>(null)
 
   // Rendered only after mount so server and client markup can't disagree on the time.
@@ -189,18 +191,18 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
 
       <button
         type="button"
-        aria-label="Open calendar and notifications"
+        aria-label="Open calendar"
         data-notif-trigger
-        onClick={() => setNotifOpen(!notifOpen)}
+        onClick={() => setNotifOpen(!calendarOpen, "calendar")}
         aria-haspopup="dialog"
-        aria-expanded={notifOpen}
+        aria-expanded={calendarOpen}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
           openMenu(e.clientX, e.clientY, [{ label: "Adjust date and time", disabled: true }])
         }}
         className={`flex h-9 flex-col items-end justify-center rounded-md px-2 text-[11.5px] leading-tight ${
-          notifOpen ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
+          calendarOpen ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
         }`}
         style={{ color: "var(--os-fg)" }}
       >
@@ -212,8 +214,12 @@ function Tray({ openMenu }: { openMenu: (x: number, y: number, items: MenuItem[]
         type="button"
         data-notif-trigger
         aria-label={unread ? `Notifications, ${unread} new` : "Notifications"}
-        onClick={() => setNotifOpen(!notifOpen)}
-        className="relative grid h-9 w-7 place-items-center rounded-md hover:bg-[var(--os-hover)]"
+        onClick={() => setNotifOpen(!panelOpen)}
+        aria-haspopup="dialog"
+        aria-expanded={panelOpen}
+        className={`relative grid h-9 w-7 place-items-center rounded-md ${
+          panelOpen ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"
+        }`}
       >
         <Bell size={14} style={{ color: "var(--os-fg)" }} />
         {unread > 0 && (
