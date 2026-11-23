@@ -6,7 +6,7 @@ const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "tr
 const nextConfig = {
   // Type errors now fail the build rather than shipping silently.
   typescript: { ignoreBuildErrors: false },
-  eslint: { ignoreDuringBuilds: false },
+  experimental: { agentUpgrade: "security" },
   images: { unoptimized: true },
   reactStrictMode: true,
 }

@@ -1,6 +1,9 @@
 allowBuilds:
   unrs-resolver: true
 
-# Next 15 pins an older PostCSS; use the audited compatible 8.x release.
+minimumReleaseAgeExclude:
+  - lucide-react@1.78.0
+
+# Align Next.js with the patched PostCSS used by the stylesheet build.
 overrides:
-  "next@15.5.26>postcss": 8.5.28
+  "next@16.4.6>postcss": 8.5.33

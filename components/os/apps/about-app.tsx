@@ -1,6 +1,7 @@
 "use client"
 
-import { AtSign, Github, Linkedin, MapPin, Phone, Sparkles } from "lucide-react"
+import { AtSign, MapPin, Phone, Sparkles } from "lucide-react"
+import { Github, Linkedin } from "../social-icons"
 import { PROFILE, SHOW_PROJECTS } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
 import { Button, Card, Page, Row } from "./kit"

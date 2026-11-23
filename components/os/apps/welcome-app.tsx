@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Github, Linkedin, Mail } from "lucide-react"
+import { ArrowRight, Mail } from "lucide-react"
+import { Github, Linkedin } from "../social-icons"
 import { PROFILE } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
 import type { WindowInstance } from "@/lib/os/types"

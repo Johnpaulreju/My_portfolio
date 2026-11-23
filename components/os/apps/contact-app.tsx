@@ -3,7 +3,8 @@
 import { useSessionWork } from "@/lib/os/session-work"
 
 import { useState } from "react"
-import { Check, Github, Inbox, Linkedin, Mail, Phone, Send, MapPin } from "lucide-react"
+import { Check, Inbox, Mail, Phone, Send, MapPin } from "lucide-react"
+import { Github, Linkedin } from "../social-icons"
 import { PROFILE } from "@/lib/os/content"
 import { Button } from "./kit"
 

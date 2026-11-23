@@ -10,11 +10,9 @@ import {
   ChevronRight,
   Columns2,
   ExternalLink,
-  Github,
   History,
   Home,
   Info,
-  Linkedin,
   MapPin,
   Plus,
   RotateCw,
@@ -23,6 +21,7 @@ import {
   Shuffle,
   X,
 } from "lucide-react"
+import { Github, Linkedin } from "../social-icons"
 import { ACHIEVEMENTS, LAB, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_LAB, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE, type Project } from "@/lib/os/content"
 import { SITE_URL } from "@/lib/site"
 import type { AppId, WindowInstance } from "@/lib/os/types"

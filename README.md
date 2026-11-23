@@ -49,7 +49,7 @@ lib/site.ts                    canonical origin, page metadata, profile helpers
 
 The server home passes visible profile content to `PortfolioShell`. The shell renders it during initial hydration; the standalone pages remain available without JavaScript.
 
-The stack is Next.js 15, React 19, TypeScript, Tailwind CSS, Zustand, and Lucide. The existing `--os-*` tokens style both the OS and readable pages. App tiles use pinned upstream Lucide SVGs, bundled copies, and built-in glyph recovery. [Asset sources and licenses](public/brand/README.md).
+The stack is Next.js 16, React 19, TypeScript, Tailwind CSS, Zustand, and Lucide. The existing `--os-*` tokens style both the OS and readable pages. App tiles use pinned upstream Lucide SVGs, bundled copies, and built-in glyph recovery. [Asset sources and licenses](public/brand/README.md).
 
 ## Run and check
 
