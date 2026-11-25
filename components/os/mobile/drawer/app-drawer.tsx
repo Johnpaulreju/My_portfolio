@@ -26,8 +26,9 @@ export function AppDrawer({ onLaunch, inputRef }: { onLaunch: Launch; inputRef: 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key !== "Enter" || !q) return
-            if (apps.length && !question) onLaunch(apps[0].id)
+            if (e.key !== "Enter" || e.nativeEvent.isComposing || !q) return
+            if (question) openMyGPT(q)
+            else if (apps.length) onLaunch(apps[0].id)
             else useWM.getState().open("browser", { q })
           }}
           placeholder={SEARCH_PLACEHOLDER}

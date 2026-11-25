@@ -13,7 +13,7 @@ export function AppTile({ id, onLaunch, light = false, size = 48 }: { id: AppId;
       type="button"
       data-home-tile={light || undefined}
       onClick={(e) => onLaunch(id, e.currentTarget.querySelector("[data-tile-icon]"))}
-      aria-label={APP_META[id].title}
+      title={APP_META[id].title}
       className="phone-app-tile flex min-h-12 min-w-12 flex-col items-center gap-1 rounded-xl py-1"
     >
       <span data-tile-icon className="inline-flex"><AppIcon appId={id} size={size} /></span>

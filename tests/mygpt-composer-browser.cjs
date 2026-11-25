@@ -78,6 +78,15 @@ async function check(browser, mobile) {
     await input.press("Enter")
     await page.getByText(/Kristu Jayanti/).first().waitFor()
     assert.equal(requests, 1)
+    if (mobile) {
+      await page.getByRole("navigation", { name: "Phone navigation" }).getByRole("button", { name: "Home", exact: true }).tap()
+      await page.getByRole("button", { name: "All apps", exact: true }).tap()
+      const search = page.getByRole("dialog", { name: "All apps" }).getByRole("searchbox")
+      const question = "Which projects has Johnpaul built?"
+      await search.fill(question)
+      await search.press("Enter")
+      await page.getByRole("dialog", { name: "MyGPT", exact: true }).getByText(question, { exact: true }).last().waitFor()
+    }
     console.log(mobile ? "Phone composer passed" : "Desktop composer and transcript selection passed")
   } finally { await page.close() }
 }
