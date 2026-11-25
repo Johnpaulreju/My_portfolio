@@ -1,225 +1,202 @@
 "use client"
 
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react"
-import { Moon, RotateCcw, Sun, Info, Palette, ImagePlus, Image as ImageIcon, Loader2, X } from "lucide-react"
-import { useWM } from "@/lib/os/wm-store"
-import { useFS } from "@/lib/os/fs-store"
-import { DEFAULT_WALLPAPER, DEFAULT_WALLPAPER_URL, MAX_CUSTOM, useWallpaper } from "@/lib/os/wallpaper-store"
+import { useRef, useState, type ChangeEvent } from "react"
+import { AlignCenter, AlignLeft, AppWindow, Check, HardDrive, Image as ImageIcon, ImagePlus, Monitor, Moon, Paintbrush, PanelBottom, Sun, Trash2 } from "lucide-react"
+import { ACCENTS, useAppearance } from "@/lib/os/appearance-store"
 import { PROFILE } from "@/lib/os/content"
-import { Button, Card, Page, PageTitle, Row } from "./kit"
+import { useFS } from "@/lib/os/fs-store"
+import type { Theme, WindowInstance } from "@/lib/os/types"
+import { WALLPAPER_PRESETS, wallpaperPreset } from "@/lib/os/wallpaper-presets"
+import { MAX_CUSTOM, useWallpaper } from "@/lib/os/wallpaper-store"
+import { useWM } from "@/lib/os/wm-store"
+import { Wallpaper } from "../wallpaper"
+import styles from "./settings.module.css"
 
-const wallpaperPreview = (theme: "dark" | "light") =>
-  `linear-gradient(0deg, ${theme === "light" ? "#d5e6ff24" : "#08142b36"}, transparent), url("${DEFAULT_WALLPAPER_URL}") center / cover`
+const sections = [
+  { id: "background", label: "Background", icon: ImageIcon },
+  { id: "colors", label: "Colors", icon: Paintbrush },
+  { id: "taskbar", label: "Taskbar", icon: PanelBottom },
+  { id: "system", label: "System", icon: Monitor },
+] as const
 
-export function SettingsApp() {
-  const { theme, setTheme, closeAll } = useWM()
-  const { reset, nodes } = useFS()
+export function SettingsApp({ win }: { win: WindowInstance }) {
+  const theme = useWM((s) => s.theme)
+  const setPayload = useWM((s) => s.setPayload)
+  const section = sections.find((item) => item.id === win.payload?.section) ?? sections[0]
 
   return (
-    <Page>
-      <PageTitle title="Settings" sub="Personalise this desktop." />
+    <main aria-label="Settings" className={styles.settings}>
+      <aside className={styles.sidebar}>
+        <h1 className={styles.title}>Personalization</h1>
+        <DesktopPreview theme={theme} />
+        <nav aria-label="Settings sections" className={styles.navigation}>
+          {sections.map(({ id, label, icon: Icon }) => (
+            <button type="button" key={id} aria-current={section.id === id ? "page" : undefined}
+              onClick={() => setPayload(win.id, { section: id })}>
+              <Icon size={17} aria-hidden />{label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <section key={section.id} className={`os-scroll ${styles.panel}`} aria-label={section.label}>
+        <h2>{section.id === "taskbar" ? "Desktop taskbar" : section.label}</h2>
+        {section.id === "background" && <BackgroundSettings theme={theme} />}
+        {section.id === "colors" && <ColorSettings />}
+        {section.id === "taskbar" && <TaskbarSettings />}
+        {section.id === "system" && <SystemSettings />}
+      </section>
+    </main>
+  )
+}
 
-      <h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
-        <Palette size={15} /> Appearance
-      </h2>
-      <Card className="mb-6 p-4">
-        <p className="mb-3 text-[13px]" style={{ color: "var(--os-muted)" }}>
-          Choose a mode
-        </p>
-        <div className="flex gap-3">
-          {(
-            [
-              { id: "dark", label: "Dark", icon: <Moon size={15} /> },
-              { id: "light", label: "Light", icon: <Sun size={15} /> },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setTheme(opt.id)}
-              className="flex flex-1 flex-col gap-2 rounded-lg p-3 text-left transition-all"
-              style={{
-                background: "var(--os-card)",
-                border: `2px solid ${theme === opt.id ? "var(--os-accent)" : "var(--os-border)"}`,
-              }}
-            >
-              {/* Miniature preview of the desktop in that mode. */}
-              <span
-                className="block h-16 w-full rounded"
-                style={{ background: wallpaperPreview(opt.id) }}
-              >
-                <span className="mt-[46px] block h-2.5 w-full rounded-b bg-black/25" />
+function DesktopPreview({ theme }: { theme: Theme }) {
+  const { current, custom } = useWallpaper()
+  const alignment = useAppearance((s) => s.alignment)
+  const name = wallpaperPreset(current)?.name ?? custom.find((item) => item.id === current)?.name
+
+  return (
+    <figure className={styles.preview}>
+      <div className={styles.screen} aria-hidden>
+        <Wallpaper theme={theme} preview />
+        <span className={styles.miniWindow}><i /><i /><i /></span>
+        <span className={styles.miniTaskbar} data-alignment={alignment}><i /><i /><i /></span>
+      </div>
+      <figcaption><span>Current background</span><strong>{name}</strong></figcaption>
+    </figure>
+  )
+}
+
+function BackgroundSettings({ theme }: { theme: Theme }) {
+  const { current, custom, select, add, remove } = useWallpaper()
+  const input = useRef<HTMLInputElement>(null)
+  const browse = useRef<HTMLButtonElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+
+  async function importPicture(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    setError("")
+    setBusy(true)
+    try {
+      const result = await add(file)
+      if (!result.ok) setError(result.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pictures = [...WALLPAPER_PRESETS.filter((preset) => preset.kind === "picture"), ...custom]
+  const hasSpace = custom.length < MAX_CUSTOM
+  return (
+    <>
+      <h3>Pictures</h3>
+      <div role="group" aria-label="Pictures" className={styles.pictures}>
+        {pictures.map((picture) => (
+          <div key={picture.id} className={styles.picture}>
+            <button type="button" className={styles.pictureChoice} aria-pressed={current === picture.id}
+              onClick={() => { setError(""); select(picture.id) }}>
+              <span className={styles.thumbnail}>
+                <Wallpaper theme={theme} wallpaperId={picture.id} preview />
+                {current === picture.id && <span className={styles.selectedMark}><Check size={14} strokeWidth={3} aria-hidden /></span>}
               </span>
-              <span className="flex items-center gap-2 text-[13px]" style={{ color: "var(--os-fg)" }}>
-                {opt.icon} {opt.label}
-              </span>
+              <span className={styles.pictureName}>{picture.name}</span>
+            </button>
+            {"addedAt" in picture && <button type="button" className={styles.remove} aria-label={`Remove ${picture.name}`}
+              onClick={() => { remove(picture.id); setError(""); browse.current?.focus() }}><Trash2 size={14} aria-hidden /></button>}
+          </div>
+        ))}
+      </div>
+      <button type="button" ref={browse} disabled={busy || !hasSpace} className={styles.browse} onClick={() => input.current?.click()}>
+        <ImagePlus size={16} aria-hidden />{busy ? "Adding picture…" : "Add picture"}
+      </button>
+      <input type="file" aria-label="Choose a picture" accept="image/*" ref={input} hidden onChange={importPicture} />
+      <p role="status" className={styles.hint} data-error={!!error || undefined}>
+        {error || (hasSpace ? "Your pictures stay in this browser." : `All ${MAX_CUSTOM} picture slots are in use. Remove a picture to add another.`)}
+      </p>
+      <div className={styles.divider}>
+        <h3>Solid colors</h3>
+        <div role="group" aria-label="Solid colors" className={styles.choices}>
+          {WALLPAPER_PRESETS.filter((preset) => preset.kind === "color").map((preset) => (
+            <button key={preset.id} type="button" aria-pressed={current === preset.id}
+              onClick={() => { setError(""); select(preset.id) }}>
+              <span className={styles.swatch} style={{ backgroundColor: preset.color }} />{preset.name}
+              {current === preset.id && <Check size={14} aria-hidden />}
             </button>
           ))}
         </div>
-      </Card>
-
-      <h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
-        <ImageIcon size={15} /> Background
-      </h2>
-      <BackgroundPicker />
-
-      <h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
-        <RotateCcw size={15} /> Storage
-      </h2>
-      <Card className="mb-6">
-        <Row label="Items on this desktop" value={`${nodes.length}`} />
-        <Row
-          label="Reset files"
-          value="Restores the starter files"
-          action={
-            <Button
-              onClick={() => {
-                if (window.confirm("Delete everything you've created and restore the starter files?")) reset()
-              }}
-            >
-              Reset
-            </Button>
-          }
-        />
-        <Row
-          label="Close all windows"
-          value=""
-          action={<Button onClick={closeAll}>Close all</Button>}
-        />
-      </Card>
-
-      <h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
-        <Info size={15} /> About
-      </h2>
-      <Card>
-        <Row label="Device name" value="PORTFOLIO-PC" />
-        <Row label="Owner" value={PROFILE.name} />
-        <Row label="Edition" value="Portfolio OS" />
-        <Row label="Built with" value="Next.js · React · TypeScript · Tailwind" />
-      </Card>
-    </Page>
-  )
-}
-
-function BackgroundPicker() {
-  const theme = useWM((s) => s.theme)
-  const { current, custom, select, add, remove } = useWallpaper()
-  const input = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const onPick = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    // Cleared so choosing the same file again still fires a change.
-    e.target.value = ""
-    if (!file) return
-    setBusy(true)
-    setError(null)
-    const res = await add(file)
-    setBusy(false)
-    if (!res.ok) setError(res.message)
-  }
-
-  return (
-    <Card className="mb-6 p-4">
-      <p className="mb-3 text-[13px]" style={{ color: "var(--os-muted)" }}>
-        Pick a background, or add your own picture.
-      </p>
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))" }}>
-        <WallpaperTile
-          label="Azure folds (default)"
-          selected={current === DEFAULT_WALLPAPER}
-          onSelect={() => select(DEFAULT_WALLPAPER)}
-        >
-          <span className="block h-full w-full" style={{ background: wallpaperPreview(theme) }} />
-        </WallpaperTile>
-
-        {custom.map((w) => (
-          <WallpaperTile
-            key={w.id}
-            label={w.name}
-            selected={current === w.id}
-            onSelect={() => select(w.id)}
-            onRemove={() => {
-              setError(null)
-              remove(w.id)
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- a data: URL from localStorage */}
-            <img src={w.src} alt="" className="h-full w-full object-cover" />
-          </WallpaperTile>
-        ))}
-
-        {custom.length < MAX_CUSTOM && (
-          <button
-            type="button"
-            onClick={() => input.current?.click()}
-            disabled={busy}
-            className="flex min-w-0 flex-col gap-1.5 text-left disabled:opacity-60"
-          >
-            <span
-              className="grid aspect-video w-full place-items-center rounded-md transition-colors hover:bg-[var(--os-hover)]"
-              style={{ border: "2px dashed var(--os-border)", color: "var(--os-muted)" }}
-            >
-              {busy ? <Loader2 size={18} className="motion-safe:animate-spin" /> : <ImagePlus size={18} />}
-            </span>
-            <span className="block truncate text-[12px]" style={{ color: "var(--os-fg)" }}>
-              {busy ? "Adding…" : "Add picture"}
-            </span>
-          </button>
-        )}
       </div>
-
-      <input ref={input} type="file" accept="image/*" className="hidden" onChange={onPick} />
-      <p
-        role="status"
-        aria-live="polite"
-        className="mt-3 text-[12px]"
-        style={{ color: error ? "color-mix(in srgb, var(--os-danger) 65%, var(--os-fg))" : "var(--os-muted)" }}
-      >
-        {error ?? "Pictures are saved in this browser only. Nothing is uploaded."}
-      </p>
-    </Card>
+    </>
   )
 }
 
-function WallpaperTile({
-  label,
-  selected,
-  onSelect,
-  onRemove,
-  children,
-}: {
-  label: string
-  selected: boolean
-  onSelect: () => void
-  onRemove?: () => void
-  children: ReactNode
-}) {
+function ColorSettings() {
+  const { accent, setAccent } = useAppearance()
+  const { theme, setTheme } = useWM()
   return (
-    <div className="relative min-w-0">
-      <button type="button" onClick={onSelect} aria-pressed={selected} className="flex w-full flex-col gap-1.5 text-left">
-        <span
-          className="block aspect-video w-full overflow-hidden rounded-md"
-          style={{ border: `2px solid ${selected ? "var(--os-accent)" : "var(--os-border)"}` }}
-        >
-          {children}
-        </span>
-        <span className="block truncate text-[12px]" style={{ color: "var(--os-fg)" }}>
-          {label}
-        </span>
-      </button>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove ${label}`}
-          title="Remove"
-          className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
-        >
-          <X size={13} />
-        </button>
-      )}
-    </div>
+    <>
+      <h3>Color mode</h3>
+      <div role="group" aria-label="Color mode" className={styles.choices}>
+        {([{ id: "light", Icon: Sun, name: "Light" }, { id: "dark", Icon: Moon, name: "Dark" }] as const).map(({ id, Icon, name }) => (
+          <button key={id} type="button" aria-pressed={theme === id} onClick={() => setTheme(id)}><Icon size={17} aria-hidden />{name}</button>
+        ))}
+      </div>
+      <div className={styles.divider}>
+        <h3>Accent color</h3>
+        <div role="group" aria-label="Accent color" className={styles.choices}>
+          {ACCENTS.map((item) => (
+            <button key={item.id} type="button" aria-pressed={accent === item.id} onClick={() => setAccent(item.id)}>
+              <span className={styles.swatch} style={{ backgroundColor: theme === "dark" ? item.dark : item.swatch }} />{item.label}
+              {accent === item.id && <Check size={14} aria-hidden />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function TaskbarSettings() {
+  const { alignment, setAlignment } = useAppearance()
+  return (
+    <>
+      <h3>Taskbar alignment</h3>
+      <p className={styles.description}>Choose where Start and your pinned apps sit on the desktop.</p>
+      <div role="group" aria-label="Taskbar alignment" className={styles.choices}>
+        {([{ id: "left", Icon: AlignLeft, name: "Left" }, { id: "center", Icon: AlignCenter, name: "Center" }] as const).map(({ id, Icon, name }) => (
+          <button key={id} type="button" aria-pressed={alignment === id} onClick={() => setAlignment(id)}><Icon size={17} aria-hidden />{name}</button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function SystemSettings() {
+  const { reset, nodes } = useFS()
+  const closeAll = useWM((s) => s.closeAll)
+  return (
+    <>
+      <h3>Storage and windows</h3>
+      <div className={styles.systemRow}>
+        <span><HardDrive size={17} aria-hidden />Desktop files<small>{nodes.length} items</small></span>
+        <button type="button" className={styles.action} onClick={() => {
+          if (window.confirm("Delete everything you've created and restore the starter files?")) reset()
+        }}>Reset files</button>
+      </div>
+      <div className={styles.systemRow}>
+        <span><AppWindow size={17} aria-hidden />Open windows</span>
+        <button type="button" className={styles.action} onClick={closeAll}>Close all</button>
+      </div>
+      <div className={styles.divider}>
+        <h3>About this device</h3>
+        <dl className={styles.specs}>
+          <dt>Device name</dt><dd>PORTFOLIO-PC</dd>
+          <dt>Owner</dt><dd>{PROFILE.name}</dd>
+          <dt>Edition</dt><dd>Portfolio OS</dd>
+          <dt>Built with</dt><dd>Next.js · React · TypeScript · Tailwind</dd>
+        </dl>
+      </div>
+    </>
   )
 }

@@ -95,7 +95,7 @@ function renderApp(appId: AppId, win: WindowInstance) {
     case "browser": return <BrowserApp win={win} />
     case "notepad": return <NotepadApp win={win} />
     case "explorer": return <ExplorerApp win={win} />
-    case "settings": return <SettingsApp />
+    case "settings": return <SettingsApp win={win} />
     case "terminal": return <TerminalApp />
     case "resume": return <ResumeApp />
     case "welcome": return <WelcomeApp win={win} />

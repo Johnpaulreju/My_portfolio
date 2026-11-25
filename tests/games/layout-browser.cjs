@@ -189,7 +189,9 @@ async function run() {
     }
     await page.emulateMedia({reducedMotion:'reduce'})
     await page.setViewportSize({width:568,height:320})
-    await launch('Settings');await page.getByRole('button',{name:'Light',exact:true}).click()
+    await launch('Settings')
+    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('button',{name:'Colors',exact:true}).click()
+    await page.getByRole('button',{name:'Light',exact:true}).click()
     for(const name of ['Ridgeline','Minesweeper','Solitaire']) {await launch(name);await shot('568-light-'+name.toLowerCase())}
     record('light theme and reduced motion','rendered all three short game surfaces')
     record('browser',{version:browser.version(),errors})

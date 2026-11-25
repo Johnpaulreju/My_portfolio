@@ -205,7 +205,7 @@ const APP_HINTS: Record<AppId, { blurb: string; alias: string }> = {
   docs: { blurb: "Rich documents, pages and printing.", alias: "document writer word processing jpdoc letter page" },
   player: { blurb: "Play the video files on this machine.", alias: "media video movie mp4 watch playback" },
   explorer: { blurb: "Browse files and folders.", alias: "files folders directory disk browse manager" },
-  settings: { blurb: "Theme, sound, network and system.", alias: "preferences options control panel configure wallpaper" },
+  settings: { blurb: "Desktop wallpaper, colors, taskbar and system settings.", alias: "preferences options control panel configure wallpaper background personalize personalise personalization personalisation appearance theme colour accent taskbar alignment" },
   terminal: { blurb: "A real shell over this machine.", alias: "console command line cmd shell prompt cli" },
   resume: { blurb: "Résumé view with Print / Save as PDF.", alias: "cv curriculum vitae pdf hire download" },
   welcome: { blurb: "Start here.", alias: "intro tour getting started first run guide" },

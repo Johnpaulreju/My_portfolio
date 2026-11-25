@@ -64,6 +64,12 @@ export function openMyGPT(query: string) {
   wm().setPayload(id, { query })
 }
 
+/** A desktop shortcut can navigate Settings even when its window is already open. */
+export function openSettings(section: "background" | "colors" | "taskbar" | "system") {
+  const state = wm()
+  state.setPayload(state.open("settings"), { section })
+}
+
 /** Same as openApp but takes a human string; used by the shell and the assistant. */
 export function openAppByName(name: string): ActionResult<string> {
   const id = resolveApp(name)

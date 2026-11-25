@@ -1,19 +1,17 @@
 "use client"
 
 import { create } from "zustand"
+import { DEFAULT_WALLPAPER, wallpaperPreset } from "./wallpaper-presets"
+
+export { DEFAULT_WALLPAPER, DEFAULT_WALLPAPER_URL } from "./wallpaper-presets"
 
 /**
- * The desktop background. "default" is the built-in Azure folds wallpaper; anything else is a
- * picture the visitor added from Settings. Pictures live in this browser's
- * localStorage and nowhere else - nothing is uploaded.
- *
- * Two keys, so switching wallpaper rewrites a few bytes, not every picture.
+ * Store the selected preset or picture ID separately from uploaded images so
+ * switching backgrounds only writes a few bytes to the visitor's browser.
  */
 const PREFS_KEY = "jp-os-wallpaper-v1"
 const IMAGES_KEY = "jp-os-wallpapers-v1"
 
-export const DEFAULT_WALLPAPER = "default"
-export const DEFAULT_WALLPAPER_URL = "/media/wallpapers/azure-folds.webp"
 export const MAX_CUSTOM = 8
 
 /**
@@ -32,7 +30,6 @@ export type AddResult = { ok: true } | { ok: false; message: string }
 
 type WallpaperState = {
   hydrated: boolean
-  /** DEFAULT_WALLPAPER or the id of a custom wallpaper. */
   current: string
   custom: CustomWallpaper[]
 
@@ -57,6 +54,18 @@ function savePrefs(current: string) {
 /** Throws, unlike savePrefs: a picture that didn't save has to be reported, not silently lost. */
 function saveImages(custom: CustomWallpaper[]) {
   localStorage.setItem(IMAGES_KEY, JSON.stringify(custom))
+}
+
+function readStored(key: string): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? "null")
+  } catch {
+    return null
+  }
+}
+
+function available(id: string, custom: CustomWallpaper[]) {
+  return Boolean(wallpaperPreset(id)) || custom.some((w) => w.id === id)
 }
 
 /** Only our own re-encoded pictures are ever accepted back out of storage. */
@@ -103,23 +112,16 @@ export const useWallpaper = create<WallpaperState>((set, get) => ({
 
   hydrate: () => {
     if (get().hydrated) return
-    let custom: CustomWallpaper[] = []
-    let current = DEFAULT_WALLPAPER
-    try {
-      const images: unknown = JSON.parse(localStorage.getItem(IMAGES_KEY) ?? "[]")
-      if (Array.isArray(images)) custom = images.filter(isWallpaper).slice(0, MAX_CUSTOM)
-      const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as { current?: unknown }
-      if (typeof prefs.current === "string" && custom.some((w) => w.id === prefs.current)) {
-        current = prefs.current
-      }
-    } catch {
-      /* corrupt storage falls through to the default wallpaper */
-    }
+    const images = readStored(IMAGES_KEY)
+    const custom = Array.isArray(images) ? images.filter(isWallpaper).slice(0, MAX_CUSTOM) : []
+    const prefs = readStored(PREFS_KEY)
+    const id = prefs && typeof prefs === "object" && "current" in prefs ? prefs.current : null
+    const current = typeof id === "string" && available(id, custom) ? id : DEFAULT_WALLPAPER
     set({ custom, current, hydrated: true })
   },
 
   select: (id) => {
-    if (id !== DEFAULT_WALLPAPER && !get().custom.some((w) => w.id === id)) return
+    if (!available(id, get().custom)) return
     set({ current: id })
     savePrefs(id)
   },
@@ -145,6 +147,9 @@ export const useWallpaper = create<WallpaperState>((set, get) => ({
       addedAt: Date.now(),
     }
     const custom = [...get().custom, wallpaper]
+    if (custom.length > MAX_CUSTOM) {
+      return { ok: false, message: `You can keep up to ${MAX_CUSTOM} pictures. Remove one first.` }
+    }
     try {
       saveImages(custom)
     } catch (e) {
@@ -161,6 +166,7 @@ export const useWallpaper = create<WallpaperState>((set, get) => ({
   },
 
   remove: (id) => {
+    if (!get().custom.some((w) => w.id === id)) return
     const custom = get().custom.filter((w) => w.id !== id)
     const current = get().current === id ? DEFAULT_WALLPAPER : get().current
     set({ custom, current })

@@ -5,6 +5,7 @@ import { FilePlus2, FolderPlus, Monitor, Moon, Palette, RefreshCw, Sun } from "l
 import { useWM } from "@/lib/os/wm-store"
 import { usePower } from "@/lib/os/power-store"
 import { useFS } from "@/lib/os/fs-store"
+import { openSettings } from "@/lib/os/actions"
 import { Wallpaper } from "@/components/os/wallpaper"
 import { ShellSessions } from "@/components/os/shell-sessions"
 import { ContextMenu, type MenuItem, type MenuState } from "./context-menu"
@@ -110,8 +111,8 @@ export function DesktopShell({ managed = false }: { managed?: boolean }) {
       icon: theme === "dark" ? <Sun size={14} /> : <Moon size={14} />,
       onSelect: toggleTheme,
     },
-    { label: "Personalise", icon: <Palette size={14} />, onSelect: () => open("settings") },
-    { label: "Display settings", icon: <Monitor size={14} />, onSelect: () => open("settings") },
+    { label: "Personalize", icon: <Palette size={14} />, onSelect: () => openSettings("background") },
+    { label: "Display settings", icon: <Monitor size={14} />, onSelect: () => openSettings("colors") },
   ]
 
   return (

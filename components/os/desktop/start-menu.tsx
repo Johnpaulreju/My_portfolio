@@ -93,7 +93,7 @@ export function StartMenu() {
     <div
       ref={ref}
       tabIndex={-1}
-      className="absolute left-1/2 z-[150] flex w-[640px] max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col rounded-xl p-[clamp(0.75rem,3vh,1.5rem)] shadow-2xl"
+      className="os-start-menu absolute z-[150] flex w-[640px] max-w-[calc(100vw-24px)] flex-col rounded-xl p-[clamp(0.75rem,3vh,1.5rem)] shadow-2xl"
       style={{
         bottom: TASKBAR_H + 8,
         maxHeight: `calc(100dvh - ${TASKBAR_H + 16}px)`,

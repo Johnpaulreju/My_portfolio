@@ -14,6 +14,7 @@ import { useWM } from "@/lib/os/wm-store"
 import { useFS } from "@/lib/os/fs-store"
 import { usePower } from "@/lib/os/power-store"
 import { useWallpaper } from "@/lib/os/wallpaper-store"
+import { useAccentStyle, useAppearance } from "@/lib/os/appearance-store"
 import { PHONE_QUERY } from "@/lib/os/viewport"
 
 export function PortfolioShell() {
@@ -21,13 +22,17 @@ export function PortfolioShell() {
   const [isPhone, setIsPhone] = useState<boolean | null>(null)
   const root = useRef<HTMLDivElement>(null)
   const theme = useWM((s) => s.theme)
+  const accentStyle = useAccentStyle(theme)
+  const taskbarAlignment = useAppearance((s) => s.alignment)
   const running = usePower((s) => s.state === "running")
   const hydrate = useFS((s) => s.hydrate)
   const hydrateTheme = useWM((s) => s.hydrateTheme)
+  const hydrateAppearance = useAppearance((s) => s.hydrate)
   const hydrateWallpaper = useWallpaper((s) => s.hydrate)
 
   useEffect(() => hydrate(), [hydrate])
   useEffect(() => hydrateTheme(), [hydrateTheme])
+  useEffect(() => hydrateAppearance(), [hydrateAppearance])
   useEffect(() => hydrateWallpaper(), [hydrateWallpaper])
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY)
@@ -63,7 +68,8 @@ export function PortfolioShell() {
   }, [])
 
   return (
-    <div ref={root} data-theme={theme} className={!entered || isPhone === null ? "" : `portfolio-shell ${isPhone ? "portfolio-shell-phone" : ""}`}>
+    <div ref={root} data-theme={theme} data-taskbar-alignment={taskbarAlignment} style={accentStyle}
+      className={!entered || isPhone === null ? "" : `portfolio-shell ${isPhone ? "portfolio-shell-phone" : ""}`}>
       <PowerOverlay entry={!entered} onStart={() => setEntered(true)} />
       {entered && isPhone !== null ? (
         <>

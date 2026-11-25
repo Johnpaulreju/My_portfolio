@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type PointerEvent as RPointerEvent,
 import { AlarmClock, BellRing, Hourglass, Plus, X, Zap } from "lucide-react"
 import { SNOOZE_MS, type Ringing } from "@/lib/os/clock-store"
 import type { Theme } from "@/lib/os/types"
+import { useAccentStyle } from "@/lib/os/appearance-store"
 import styles from "./clock.module.css"
 
 type Props = {
@@ -33,6 +34,7 @@ function overtime(ms: number) {
  * Stop has focus, Escape stops, and the bell can be swiped on touch screens.
  */
 export function RingScreen({ ringing, mobile, theme, onStop, onSnooze }: Props) {
+  const accentStyle = useAccentStyle(theme)
   const dialog = useRef<HTMLDialogElement>(null)
   const stopButton = useRef<HTMLButtonElement>(null)
   const settled = useRef(false)
@@ -89,7 +91,7 @@ export function RingScreen({ ringing, mobile, theme, onStop, onSnooze }: Props) 
       aria-labelledby={titleId}
       aria-describedby={descId}
       className={`fixed inset-0 z-[10000] m-0 h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 ${mobile ? styles.phoneBackdrop : styles.backdrop}`}
-      style={{ color: "var(--os-fg)" }}
+      style={{ ...accentStyle, color: "var(--os-fg)" }}
       // Escape is Stop. If the browser closes the dialog itself, that is Stop too.
       onCancel={(e) => { e.preventDefault(); stopRef.current() }}
       onClose={() => stopRef.current()}

@@ -8,6 +8,8 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   experimental: { agentUpgrade: "security" },
   images: { unoptimized: true },
+  // The development indicator occupies the left-aligned Start button's hit area.
+  devIndicators: false,
   reactStrictMode: true,
 }
 

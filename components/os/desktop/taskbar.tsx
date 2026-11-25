@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Bell, ChevronUp, Plane, Search, Volume1, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
 import { PINNED_APPS, APP_META } from "@/lib/os/app-meta"
+import { openSettings } from "@/lib/os/actions"
 import { useWM } from "@/lib/os/wm-store"
 import { useSystem } from "@/lib/os/system-store"
 import { useNotify } from "@/lib/os/notify-store"
@@ -37,12 +38,12 @@ export function Taskbar({
         e.preventDefault()
         openMenu(e.clientX, e.clientY, [
           { label: "Show desktop", onSelect: minimizeAll },
-          { label: "Task view", disabled: true },
+          { label: "Taskbar settings", onSelect: () => openSettings("taskbar") },
         ])
       }}
     >
       {/* Left spacer keeps the app cluster optically centered against the tray. */}
-      <div className="flex-1" />
+      <div className="taskbar-spacer flex-1" />
 
       <div className="os-scroll flex min-w-0 items-center gap-1 overflow-x-auto">
         <button

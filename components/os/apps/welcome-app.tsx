@@ -32,8 +32,8 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
           <p className={styles.kicker}>Quick guide</p>
           <h1>Welcome to my workspace.</h1>
           <p className={styles.instructions}>
-            <span className={styles.desktopTip}>Double-click a desktop icon or use Start to find an app.</span>
-            <span className={styles.phoneTip}>Tap an app to open it. Swipe up on the home screen to browse all apps.</span>
+            <span className={styles.desktopTip}>Double-click an icon or open Start to find an app. To change the wallpaper, right-click the desktop and choose Personalize.</span>
+            <span className={styles.phoneTip}>Tap an app to open it. Swipe up for all apps, or open Settings to change your wallpaper.</span>
           </p>
           <div className={styles.destinations}>
             {destinations.map(({ id, label, detail }) => <button key={id} type="button" onClick={() => explore(id)}>
