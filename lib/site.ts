@@ -16,15 +16,9 @@ export function resolveSiteUrl(value: string | undefined): string {
 export const SITE_URL = resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)
 export const SITE_NAME = `${PROFILE.name} — Portfolio OS`
 
-// These fields are being added to shared content separately. Read safely during integration.
-function profileText(key: string, fallback: string): string {
-  const value = (PROFILE as Readonly<Record<string, unknown>>)[key]
-  return typeof value === "string" && value.trim() ? value : fallback
-}
-
-export const PROFILE_SUMMARY = profileText("summary", PROFILE.tagline)
-export const PROFILE_AVAILABILITY = profileText("availability", "Open to freelance projects. Tell me what you want to build.")
-export const PROFILE_LEARNING = profileText("learning", "I’m studying AI agents and exploring new AI technology. My brain is still downloading updates.")
+export const PROFILE_SUMMARY = PROFILE.summary
+export const PROFILE_AVAILABILITY = PROFILE.availability
+export const PROFILE_LEARNING = PROFILE.learning
 
 export function profileLink(value: string): string {
   return value.startsWith("https://") ? value : `https://${value}`
@@ -33,15 +27,15 @@ export function profileLink(value: string): string {
 export const SITE_PAGES = {
   "/": {
     title: `${PROFILE.name} — ${PROFILE.headline}`,
-    description: `${PROFILE.name}, ${PROFILE.title} in ${PROFILE.location}, and ${PROFILE.next}. ${PROFILE.tagline} Open to freelance work.`,
+    description: `${PROFILE.name} is a ${PROFILE.title} in ${PROFILE.location}. Explore clinical software, e-commerce, and independent web and mobile projects.`,
   },
   "/about": {
-    title: `About ${PROFILE.name} — ${PROFILE.title}, ${PROFILE.next}`,
-    description: `Meet ${PROFILE.name}, a software engineer who builds websites, React Native apps and AI tools, now studying AI agents to become a GenAI engineer.`,
+    title: `About ${PROFILE.name} — ${PROFILE.title}`,
+    description: `Meet ${PROFILE.name} and explore the work behind a clinical AI scribe, a storefront for preloved sarees, client websites, and Plan0.`,
   },
   "/resume": {
     title: `${PROFILE.name} — Resume · ${PROFILE.title}`,
-    description: `${PROFILE.name}’s resume: ${PROFILE.headline}. Skills, work and education history, and contact details, ready to print.`,
+    description: `Read or print ${PROFILE.name}’s résumé with employer and client projects, technical skills, education, and contact details.`,
   },
 } as const
 

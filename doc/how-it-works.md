@@ -28,8 +28,8 @@ Two rules held throughout:
    filesystem really stores files and they survive a reload. The terminal really
    has a working directory. If it looks interactive, it is.
 2. **Use original identity and licensed assets.** Nimbus and Vantage are original
-   portfolio apps. App glyphs come from Lucide under the bundled license notices;
-   see `public/brand/README.md`. Vendor logos are not used for these apps.
+   portfolio apps. Their launcher artwork uses familiar browser icons. Source links
+   and notices for each app image are in `public/brand/README.md`.
 
 ---
 
@@ -472,21 +472,16 @@ free and every app follows automatically.
 
 ## 14. Original artwork
 
-The interface combines original artwork with licensed Lucide glyphs:
+The interface combines original artwork with sourced application images and Lucide glyphs:
 
 - the **wallpaper** — layered translucent SVG ribbons around a blurred core (three
   passes: first read as a daisy, then as a starburst, before it settled),
 - the **four-pane mark** on the boot and power screens,
-- the app icons — existing colored tiles with pinned Lucide SVGs, bundled fallback
-  copies, and built-in glyphs; sources and notices live in `public/brand/README.md`,
+- app icons with locally bundled artwork and built-in fallback glyphs, documented in `public/brand/README.md`,
 - the folder, text-file and project glyphs,
 - the offline page's unplugged-connector mark,
 - Minesweeper's mines and flags, Solitaire's cards and backs,
 - the Prism Player identity.
-
-Deliberately **absent**: the Windows flag, Segoe UI and Segoe Fluent Icons, the
-Chrome wordmark and dinosaur, the VLC cone, the YouTube play button, Microsoft's
-accent `#0078D4`, and every Windows sound.
 
 "JP's Windows" uses a Microsoft trademark as a joke on a personal site, which reads
 as parody — a meaningfully safer posture than presenting the UI as Microsoft's. It's

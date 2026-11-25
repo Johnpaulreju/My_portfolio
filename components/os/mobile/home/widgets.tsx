@@ -32,7 +32,7 @@ export function AtAGlance({ now, onLaunch, compact = false }: { now: Date | null
   )
 }
 
-/** The hero: who I am today, and what I am growing into. */
+/** The hero: who I am and what I work on. */
 export function ProfileWidget({ onLaunch, compact = false }: { onLaunch: Launch; compact?: boolean }) {
   return (
     <section aria-label="About Johnpaul" className={`phone-profile rounded-[28px] text-white ${compact ? "px-3.5 py-3" : "p-4"}`}>
@@ -45,7 +45,7 @@ export function ProfileWidget({ onLaunch, compact = false }: { onLaunch: Launch;
       </div>
       <p className={`phone-next-chip inline-flex ${compact ? "mt-2" : "mt-3"} max-w-full items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium`}>
         <span className="phone-pulse relative inline-flex h-2.5 w-2.5 shrink-0" aria-hidden><span className="absolute inset-0 rounded-full bg-emerald-300" /></span>
-        <span className="min-w-0">{PROFILE.next}<span className="sr-only">, in progress</span></span>
+        <span className="min-w-0">{PROFILE.next}</span>
       </p>
       <p className={`text-[13.5px] leading-snug text-white/90 ${compact ? "mt-1.5" : "mt-2.5"}`}>{PROFILE.tagline}</p>
       <div className={`flex gap-2 ${compact ? "mt-2" : "mt-3"}`}>

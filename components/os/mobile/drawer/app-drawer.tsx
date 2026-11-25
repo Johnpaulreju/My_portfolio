@@ -1,7 +1,10 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import { useMemo, useState, type RefObject } from "react"
-import { MessageCircleQuestion, Search, Sparkles } from "lucide-react"
+import { Search } from "lucide-react"
+import { openMyGPT } from "@/lib/os/actions"
 import { useWM } from "@/lib/os/wm-store"
 import { ASK_CHIPS, SEARCH_PLACEHOLDER, filterApps, looksLikeQuestion } from "@/lib/os/phone-home"
 import { AppTile, type Launch } from "../home/app-tile"
@@ -12,7 +15,6 @@ export function AppDrawer({ onLaunch, inputRef }: { onLaunch: Launch; inputRef: 
   const apps = useMemo(() => filterApps(query), [query])
   const q = query.trim()
   const question = looksLikeQuestion(q)
-  const ask = (text: string) => useWM.getState().open("browser", { q: text })
   return <>
     <div className="shrink-0 px-4 pb-2">
       <label className="phone-drawer-search flex items-center gap-3 rounded-full px-4">
@@ -26,7 +28,7 @@ export function AppDrawer({ onLaunch, inputRef }: { onLaunch: Launch; inputRef: 
           onKeyDown={(e) => {
             if (e.key !== "Enter" || !q) return
             if (apps.length && !question) onLaunch(apps[0].id)
-            else ask(q)
+            else useWM.getState().open("browser", { q })
           }}
           placeholder={SEARCH_PLACEHOLDER}
           enterKeyHint="go"
@@ -37,13 +39,13 @@ export function AppDrawer({ onLaunch, inputRef }: { onLaunch: Launch; inputRef: 
     </div>
     <div className="os-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4">
       {!q && <div className="mb-4 flex flex-wrap gap-2 px-1" role="group" aria-label="Ask JP">
-        {ASK_CHIPS.map((chip) => <button key={chip} type="button" onClick={() => ask(chip)} className="phone-ask-chip inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm">
-          <Sparkles size={15} aria-hidden />{chip}
+        {ASK_CHIPS.map((chip) => <button key={chip} type="button" onClick={() => openMyGPT(chip)} className="phone-ask-chip inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm">
+          <AppIcon appId="mygpt" size={15} />{chip}
         </button>)}
       </div>}
-      {question && <button type="button" onClick={() => ask(q)} aria-label={`Ask JP: ${q}`} className="phone-ask-row mb-4 flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left">
-        <MessageCircleQuestion size={20} aria-hidden className="shrink-0" />
-        <span className="min-w-0"><span className="block text-sm font-medium">Ask JP: {q}</span><span className="block text-xs opacity-75">Nimbus answers from my portfolio</span></span>
+      {question && <button type="button" onClick={() => openMyGPT(q)} aria-label={`Ask JP: ${q}`} className="phone-ask-row mb-4 flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left">
+        <AppIcon appId="mygpt" size={20} />
+        <span className="min-w-0"><span className="block text-sm font-medium">Ask JP: {q}</span><span className="block text-xs opacity-75">MyGPT answers from my portfolio</span></span>
       </button>}
       {apps.length
         ? <>

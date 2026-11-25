@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 
 import { AppIcon } from "@/components/os/app-icon"
+import { isAppShortcut } from "@/lib/os/actions"
 import { ALL_APPS } from "@/lib/os/app-meta"
 import { PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, TIMELINE } from "@/lib/os/content"
 import { useFS } from "@/lib/os/fs-store"
@@ -619,6 +620,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
     if (n.kind === "video") return <Tile icon={Film} />
     if (n.kind === "doc") return <Tile icon={FileType2} />
     if (n.kind === "zip") return <Tile icon={FileArchive} />
+    if (isAppShortcut(n)) return <AppIcon appId={n.appId} size={40} />
     if (n.kind === "app-link") return <Tile icon={AppWindow} />
     return <Tile icon={FileText} />
   }, [])
@@ -712,7 +714,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
             name: "Résumé",
             sub: "Open résumé view · Print / Save as PDF",
             type: "Résumé view",
-            glyph: <Tile icon={FileText} />,
+            glyph: <AppIcon appId="resume" size={40} />,
             onOpen: () => openWin("resume"),
           },
           ...(SHOW_PROJECTS

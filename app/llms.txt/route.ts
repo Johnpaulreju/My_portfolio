@@ -12,12 +12,12 @@ export function GET() {
 Learning: ${PROFILE.learning}
 Availability: ${PROFILE.availability}
 
-A personal portfolio with an interactive desktop and readable profile pages. Work and education history are attributed to the named organizations. Projects and Lab are coming soon; no personal project catalogue is published.
+The project descriptions cover Johnpaul’s contributions to employer projects, freelance client websites, academic research, and personal products.
 
 ## Profile
 
-- [Profile in Markdown](${SITE_URL}/about.md): Skills, work and education history, learning, and contact links.
-- [About](${SITE_URL}/about): Readable profile and freelance availability.
+- [Profile in Markdown](${SITE_URL}/about.md): Project credits and links, employer history, education, skills, and contact details.
+- [About](${SITE_URL}/about): Readable profile, selected projects, and freelance availability.
 - [Resume](${SITE_URL}/resume): Printable work, education, and skills overview.
 
 ## Optional

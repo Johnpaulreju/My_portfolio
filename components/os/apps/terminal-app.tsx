@@ -15,7 +15,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import * as A from "@/lib/os/actions"
-import { ask, SUGGESTED_QUESTIONS, type AssistantAction } from "@/lib/os/assistant"
+import { ask, SUGGESTED_QUESTIONS, type AssistantAction, type AssistantAnswer } from "@/lib/os/assistant"
+import { askProfile } from "@/lib/os/ask-profile"
 import { assistantInvoke } from "@/lib/os/capabilities"
 import { ACHIEVEMENTS, LAB, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_LAB, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
 import { SITE_URL } from "@/lib/site"
@@ -93,6 +94,40 @@ function wrap(text: string, width = 74): string[] {
   }
   if (cur) lines.push(cur)
   return lines
+}
+
+function printLocalAnswer(out: Out, a: AssistantAnswer) {
+  out.say("")
+  for (const para of a.text.split("\n")) {
+    if (!para.trim()) {
+      out.say("")
+      continue
+    }
+    for (const row of wrap(para.trim())) out.say(`  ${row}`)
+  }
+  if (a.facts?.length) {
+    out.say("")
+    for (const f of a.facts) out.split(`  ${f.label.padEnd(18)}`, f.value, "info")
+  }
+  if (a.actions?.length) {
+    out.say("")
+    out.info("  I can do these for you:")
+    a.actions.forEach((act, i) => out.split(`    ${i + 1}. `, act.label, "out"))
+    out.dim(`    run one with: ask --do <n>`)
+    out.chips(a.actions.map((_, i) => `ask --do ${i + 1}`))
+  }
+  if (a.suggestions?.length) {
+    out.say("")
+    out.dim("  next:")
+    out.chips(a.suggestions.slice(0, 4).map((q) => `ask "${q.replace(/"/g, "")}"`))
+  }
+  out.say("")
+  out.dim(
+    a.unknown
+      ? "  (not in the profile — so it doesn't get invented)"
+      : `  confidence ${Math.round(a.confidence * 100)}% · grounded in lib/os/content.ts`,
+  )
+  out.say("")
 }
 
 /* ------------------------------------------------------------- vfs helpers */
@@ -676,6 +711,17 @@ export function TerminalApp() {
   const caretRef = useRef<number | null>(null)
   /** The offers from the last `ask`, so `ask --do <n>` has something to point at. */
   const askRef = useRef<AssistantAction[]>([])
+  const profileQuestions = useRef<string[]>([])
+  const askSequence = useRef(0)
+  const askControllers = useRef(new Set<AbortController>())
+  useEffect(() => {
+    const controllers = askControllers.current
+    return () => controllers.forEach((controller) => controller.abort())
+  }, [])
+  const cancelPendingAsks = useCallback(() => {
+    askControllers.current.forEach((controller) => controller.abort())
+    askControllers.current.clear()
+  }, [])
   /** Which window we live in - captured at mount, when we are the focused one. */
   const winIdRef = useRef<string | null>(null)
 
@@ -1611,6 +1657,8 @@ export function TerminalApp() {
           break
 
         case "clear":
+          cancelPendingAsks()
+          buf.length = 0
           clearScreen = true
           break
 
@@ -1692,7 +1740,7 @@ export function TerminalApp() {
             ["Files", `${all.length} nodes in the VFS`],
             ["Owner", PROFILE.name],
             ["Role", PROFILE.title],
-            ["Next", PROFILE.next],
+            ["Focus", PROFILE.next],
             ["Where", PROFILE.location],
             ...(SHOW_PROJECTS ? [["Projects", `${PROJECTS.length} published`] as [string, string]] : []),
             ["Contact", PROFILE.email],
@@ -1774,7 +1822,7 @@ export function TerminalApp() {
             ["", "─────────────────"],
             ["Owner", PROFILE.name],
             ["Role", PROFILE.title],
-            ["Next", PROFILE.next],
+            ["Focus", PROFILE.next],
             ["OS", "Portfolio OS 11 (web build)"],
             ["Shell", "jpsh 1.0.0"],
             ["Theme", snap.theme],
@@ -1836,7 +1884,8 @@ export function TerminalApp() {
           const question = joined.trim()
           if (!question) {
             out.say("")
-            out.ok("  Ask anything about Johnpaul — in plain English.")
+            out.ok("  Ask a question about Johnpaul’s portfolio.")
+            out.dim("  Questions may be sent to Google Gemini. Share public information only.")
             out.dim('  usage: ask "<question>"   ·   then: ask --do <n> to run an offer')
             out.say("")
             out.chips(SUGGESTED_QUESTIONS.slice(0, 4).map((q) => `ask "${q.replace(/"/g, "")}"`))
@@ -1844,39 +1893,42 @@ export function TerminalApp() {
             break
           }
 
-          const a = ask(question)
-          askRef.current = a.actions ?? []
-          out.say("")
-          for (const para of a.text.split("\n")) {
-            if (!para.trim()) {
-              out.say("")
-              continue
+          const local = ask(question)
+          const requestId = ++askSequence.current
+          if (local.localAction || useSystem.getState().status() !== "online") {
+            askRef.current = local.actions ?? []
+            printLocalAnswer(out, local)
+            break
+          }
+
+          // Reserve this answer's position before running the next shell command.
+          const marker: Line = { t: "text", s: "  Checking Johnpaul’s profile…", tone: "dim" }
+          buf.push(marker)
+          askRef.current = []
+          const previous = profileQuestions.current
+          profileQuestions.current = [...previous, question].slice(-3)
+          const controller = new AbortController()
+          askControllers.current.add(controller)
+          void askProfile(question, previous, controller.signal).catch(() => null).then((reply) => {
+            askControllers.current.delete(controller)
+            if (controller.signal.aborted) return
+            const replacement: Line[] = []
+            const writer = makeOut(replacement)
+            if (reply) {
+              for (const paragraph of reply.text.split("\n")) {
+                for (const row of wrap(paragraph)) writer.say(`  ${row}`)
+              }
+              for (const link of reply.links) writer.info(`  ${link.label}: ${link.url}`)
+            } else {
+              printLocalAnswer(writer, local)
+              if (requestId === askSequence.current) askRef.current = local.actions ?? []
             }
-            for (const row of wrap(para.trim())) out.say(`  ${row}`)
-          }
-          if (a.facts?.length) {
-            out.say("")
-            for (const f of a.facts) out.split(`  ${f.label.padEnd(18)}`, f.value, "info")
-          }
-          if (a.actions?.length) {
-            out.say("")
-            out.info("  I can do these for you:")
-            a.actions.forEach((act, i) => out.split(`    ${i + 1}. `, act.label, "out"))
-            out.dim(`    run one with: ask --do <n>`)
-            out.chips(a.actions.map((_, i) => `ask --do ${i + 1}`))
-          }
-          if (a.suggestions?.length) {
-            out.say("")
-            out.dim("  next:")
-            out.chips(a.suggestions.slice(0, 4).map((q) => `ask "${q.replace(/"/g, "")}"`))
-          }
-          out.say("")
-          out.dim(
-            a.unknown
-              ? "  (not in the profile — so it doesn't get invented)"
-              : `  confidence ${Math.round(a.confidence * 100)}% · grounded in lib/os/content.ts`,
-          )
-          out.say("")
+            setLines((current) => {
+              const index = current.indexOf(marker)
+              if (index < 0) return current
+              return [...current.slice(0, index), ...replacement, ...current.slice(index + 1)].slice(-MAX_LINES)
+            })
+          })
           break
         }
 
@@ -1959,7 +2011,7 @@ export function TerminalApp() {
 
         case "experience": {
           out.say("")
-          out.split("  Current role", PROFILE.role)
+          out.split("  Current work", PROFILE.role)
           out.dim(`  ${PROFILE.learning}`)
           out.say("")
           for (const e of TIMELINE) {
@@ -2121,7 +2173,7 @@ export function TerminalApp() {
       const next = clearScreen ? buf : [...prev, ...buf]
       return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next
     })
-  }, [])
+  }, [cancelPendingAsks])
 
   /** One path in: the prompt, and the clickable examples, run the same way. */
   const runLine = (raw: string) => {
@@ -2230,6 +2282,7 @@ export function TerminalApp() {
     }
     if (e.ctrlKey && (e.key === "l" || e.key === "L")) {
       e.preventDefault()
+      cancelPendingAsks()
       setLines([])
       return
     }

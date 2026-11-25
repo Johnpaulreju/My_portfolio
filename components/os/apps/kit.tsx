@@ -144,7 +144,7 @@ export function ComingSoon({ icon, title, body }: { icon: ReactNode; title: stri
       <h1 className="text-[20px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
         {title}
       </h1>
-      <Pill tone="accent">Coming soon</Pill>
+      <Pill tone="accent">Portfolio notes</Pill>
       <p className="max-w-[320px] text-[13px]" style={{ color: "var(--os-muted)" }}>
         {body}
       </p>

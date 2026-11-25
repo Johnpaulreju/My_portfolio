@@ -34,6 +34,16 @@ export const APP_META: Record<AppId, AppMeta> = {
     tint: ["#fbbf24", "#d97706"], defaultSize: { w: 980, h: 620 },
     singleton: true, onDesktop: true, pinned: true,
   },
+  mygpt: {
+    id: "mygpt", title: "MyGPT", short: "MyGPT", icon: "MessagesSquare",
+    tint: ["#36a994", "#186254"], defaultSize: { w: 1000, h: 680 },
+    singleton: true, onDesktop: true, pinned: false,
+  },
+  blog: {
+    id: "blog", title: "Blog", short: "Blog", icon: "BookOpen",
+    tint: ["#7c6acf", "#49378a"], defaultSize: { w: 900, h: 640 },
+    singleton: true, onDesktop: true, pinned: false,
+  },
   experience: {
     id: "experience", title: "Experience", short: "Experience", icon: "Briefcase",
     tint: ["#a78bfa", "#6d28d9"], defaultSize: { w: 860, h: 600 },

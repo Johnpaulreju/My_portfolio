@@ -7,7 +7,7 @@ import { Card, Page, PageTitle, Pill } from "./kit"
 export function ExperienceApp() {
   return (
     <Page>
-      <PageTitle title="Experience" sub="Current freelance work, employer history and education." />
+      <PageTitle title="Experience" sub="Clinical software, independent client work and education." />
 
       <section className="mb-7">
         <h2 className="mb-2 text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>Current work</h2>

@@ -1,5 +1,7 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import {
   ArrowLeft,
@@ -49,7 +51,7 @@ import { useWM } from "@/lib/os/wm-store"
 
 const HOST = new URL(SITE_URL).host
 
-/** Brand gradient for the icon tile — bright, no text sits on it. */
+/** Gradient for the profile badge. */
 const GRAD = "linear-gradient(135deg, #00a2a8, #006d78)"
 /** Deeper cut for filled buttons, so white labels clear contrast. */
 const GRAD_BTN = "linear-gradient(135deg, #00838c, #005a63)"
@@ -207,7 +209,7 @@ function buildRecords(): Rec[] {
       id: `p-${p.id}`,
       kind: "Project",
       title: p.title,
-      sub: `${p.desc} ${p.stack} · ${p.category} · ${p.year}`,
+      sub: `${p.desc} ${p.stack} · ${p.category}${p.year === "—" ? "" : ` · ${p.year}`}`,
       hay: `${p.title} ${p.stack} ${p.desc} ${p.category} ${p.year} project built repo`.toLowerCase(),
       view: { k: "project", id: p.id },
       appId: "projects",
@@ -334,37 +336,10 @@ function markUp(text: string, ts: string[]): ReactNode {
   return out
 }
 
-/* ================================================================== *
- * Marks — original. A compass rose seen through a viewfinder: two
- * crossed needles, one bright and one dim, because the whole idea of
- * this browser is two panes with one of them in focus.
- * ================================================================== */
-
-function Rose({ size, color = "#fff" }: { size: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className="shrink-0">
-      <path d="M12 3.1 15.3 12 12 20.9 8.7 12Z" fill={color} />
-      <path d="M3.1 12 12 8.7 20.9 12 12 15.3Z" fill={color} opacity=".42" />
-    </svg>
-  )
-}
-
-function VantageMark({ size = 16 }: { size?: number }) {
-  return (
-    <span
-      aria-hidden
-      className="grid shrink-0 place-items-center"
-      style={{ width: size, height: size, borderRadius: Math.max(3, Math.round(size * 0.28)), backgroundImage: GRAD }}
-    >
-      <Rose size={Math.round(size * 0.76)} />
-    </span>
-  )
-}
-
 function Wordmark() {
   return (
     <span className="flex items-center gap-2.5">
-      <VantageMark size={30} />
+      <AppIcon appId="vantage" size={30} />
       <span className="flex flex-col leading-none">
         <span className="text-[17px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
           Vantage
@@ -453,8 +428,7 @@ type PageApi = {
  * Start — a two-column project feed, not a centred search box.
  * ================================================================== */
 
-const NEWEST = [...PROJECTS].sort((a, b) => Number(b.year) - Number(a.year))[0]
-const SECOND_PROJECT = PROJECTS.find((p) => p.id !== NEWEST?.id)
+const [FIRST_PROJECT, SECOND_PROJECT] = PROJECTS
 
 function StartPage({ api }: { api: PageApi }) {
   return (
@@ -485,7 +459,7 @@ function ProjectFeed({ api }: { api: PageApi }) {
           The work
         </h2>
         <span className="text-[11.5px]" style={{ color: "var(--os-muted)" }}>
-          {PROJECTS.length} projects · newest first
+          {PROJECTS.length} selected projects
         </span>
         <button
           type="button"
@@ -501,11 +475,9 @@ function ProjectFeed({ api }: { api: PageApi }) {
         className="grid gap-2.5"
         style={{ gridTemplateColumns: api.cols === 2 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)" }}
       >
-        {[...PROJECTS]
-          .sort((a, b) => Number(b.year) - Number(a.year))
-          .map((p) => (
-            <FeedCard key={p.id} project={p} api={api} />
-          ))}
+        {PROJECTS.map((p) => (
+          <FeedCard key={p.id} project={p} api={api} />
+        ))}
       </div>
     </>
   )
@@ -533,7 +505,7 @@ function ProjectsSoon({ api }: { api: PageApi }) {
 
 function CompareCard({ api }: { api: PageApi }) {
   const theme = useWM((s) => s.theme)
-  const [a, setA] = useState(NEWEST?.id ?? "")
+  const [a, setA] = useState(FIRST_PROJECT?.id ?? "")
   const [b, setB] = useState(SECOND_PROJECT?.id ?? "")
 
   const shuffle = () => {
@@ -707,14 +679,14 @@ function ProjectPage({ id, api }: { id: string; api: PageApi }) {
       </h1>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Chip tone="brand">{p.category}</Chip>
-        <Chip>{p.year}</Chip>
+        {p.year !== "—" && <Chip>{p.year}</Chip>}
       </div>
 
       <div className="mt-4 rounded-lg px-3.5 py-1" style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}>
         <Spec label="Summary" value={p.desc} />
         <Spec label="Stack" value={<span style={{ color: "var(--vt-ink)" }}>{p.stack}</span>} />
         <Spec label="Category" value={p.category} />
-        <Spec label="Year" value={<span className="tabular-nums">{p.year}</span>} />
+        {p.year !== "—" && <Spec label="Year" value={<span className="tabular-nums">{p.year}</span>} />}
         <Spec
           label="Peers"
           value={`${siblings.length} other ${siblings.length === 1 ? "project" : "projects"} in ${p.category}`}
@@ -914,7 +886,7 @@ function FindPage({ q, api }: { q: string; api: PageApi }) {
   return (
     <div className="mx-auto w-full max-w-[760px] px-6 py-5">
       <div className="mb-4 flex items-center gap-2">
-        <VantageMark size={18} />
+        <AppIcon appId="vantage" size={18} />
         <span className="text-[13px] font-semibold" style={{ color: "var(--os-fg)" }}>
           Vantage Find
         </span>
@@ -1317,7 +1289,7 @@ export function VantageApp({ win }: { win: WindowInstance }) {
                   color: "var(--os-fg)",
                 }}
               >
-                <VantageMark size={13} />
+                <AppIcon appId="vantage" size={13} />
                 <span className="min-w-0 flex-1 truncate">{tm.title}</span>
                 {t.split && <Columns2 size={11} className="shrink-0" style={{ color: "var(--vt-ink)" }} />}
                 <button
@@ -1782,7 +1754,7 @@ function OmniBox({
               className="flex w-full items-center gap-2.5 px-3 py-2 text-left"
               style={{ background: cursor === i ? "var(--os-hover)" : "transparent" }}
             >
-              <VantageMark size={13} />
+              <AppIcon appId="vantage" size={13} />
               <span className="min-w-0 flex-1 truncate text-[12.5px]" style={{ color: "var(--os-fg)" }}>
                 {r.title}
               </span>

@@ -58,6 +58,12 @@ export function openApp(
   return ok(wm().open(appId, payload, title))
 }
 
+/** Deliver a question even when the singleton chat is already open. */
+export function openMyGPT(query: string) {
+  const id = wm().open("mygpt")
+  wm().setPayload(id, { query })
+}
+
 /** Same as openApp but takes a human string; used by the shell and the assistant. */
 export function openAppByName(name: string): ActionResult<string> {
   const id = resolveApp(name)
@@ -106,6 +112,10 @@ type OpenTarget =
   | { kind: "app"; appId: AppId }
   | { kind: "editor"; node: FSNode; appId: AppId }
   | { kind: "media"; node: FSNode }
+
+export function isAppShortcut(node: FSNode): node is FSNode & { kind: "app-link"; appId: AppId } {
+  return node.kind === "app-link" && typeof node.appId === "string" && isAppId(node.appId)
+}
 
 /** Pure: what SHOULD open for this node. Separated so callers can preview it. */
 export function resolveNodeTarget(node: FSNode): OpenTarget {

@@ -1,6 +1,8 @@
 export type AppId =
   | "about"
   | "projects"
+  | "blog"
+  | "mygpt"
   | "experience"
   | "skills"
   | "achievements"

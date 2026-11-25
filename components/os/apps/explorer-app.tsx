@@ -1,10 +1,12 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowUp, FilePlus2, FolderPlus, Monitor, Pencil, Trash2 } from "lucide-react"
 import { useFS } from "@/lib/os/fs-store"
 import { useWM } from "@/lib/os/wm-store"
-import { openNode as openNodeAction } from "@/lib/os/actions"
+import { isAppShortcut, openNode as openNodeAction } from "@/lib/os/actions"
 import { useNotify } from "@/lib/os/notify-store"
 import type { WriteResult } from "@/lib/os/fs-store"
 import type { FSNode, WindowInstance } from "@/lib/os/types"
@@ -157,7 +159,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
                   selected === n.id ? "bg-[var(--os-active)] ring-1 ring-[var(--os-accent)]" : "hover:bg-[var(--os-hover)]"
                 }`}
               >
-                {n.kind === "folder" ? <FolderGlyph /> : <TextGlyph />}
+                {isAppShortcut(n) ? <AppIcon appId={n.appId} size={40} /> : n.kind === "folder" ? <FolderGlyph /> : <TextGlyph />}
                 {renaming === n.id ? (
                   <InlineRename
                     initial={n.name}

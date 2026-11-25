@@ -28,6 +28,8 @@ import { WelcomeApp } from "./apps/welcome-app"
  */
 const loading = () => <AppLoading />
 
+const MyGPTApp = dynamic(() => import("./apps/mygpt-app").then((m) => m.MyGPTApp), { ssr: false, loading })
+const BlogApp = dynamic(() => import("./apps/blog-app").then((m) => m.BlogApp), { ssr: false, loading })
 const CameraApp = dynamic(() => import("./apps/camera-app").then((m) => m.CameraApp), { ssr: false, loading })
 const ClockApp = dynamic(() => import("./apps/clock-app").then((m) => m.ClockApp), { ssr: false, loading })
 const BrowserApp = dynamic(() => import("./apps/browser-app").then((m) => m.BrowserApp), { ssr: false, loading })
@@ -83,12 +85,14 @@ function renderApp(appId: AppId, win: WindowInstance) {
   switch (appId) {
     case "about": return <AboutApp />
     case "projects": return <ProjectsApp />
+    case "blog": return <BlogApp />
+    case "mygpt": return <MyGPTApp win={win} />
     case "experience": return <ExperienceApp />
     case "skills": return <SkillsApp />
     case "achievements": return <AchievementsApp />
     case "lab": return <LabApp />
     case "contact": return <ContactApp />
-    case "browser": return <BrowserApp />
+    case "browser": return <BrowserApp win={win} />
     case "notepad": return <NotepadApp win={win} />
     case "explorer": return <ExplorerApp win={win} />
     case "settings": return <SettingsApp />

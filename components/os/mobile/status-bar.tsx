@@ -7,7 +7,7 @@ import { useSystem } from "@/lib/os/system-store"
 import { useClockStore, nextAlarm } from "@/lib/os/clock-store"
 import { useBattery } from "@/lib/os/phone-battery"
 import { SLOP, batteryGlyph, statusLabel, statusTime, unreadApps, velocityOf } from "@/lib/os/phone-shade"
-import { iconFor } from "@/components/os/app-icon"
+import { AppIcon } from "@/components/os/app-icon"
 import { shadeBus } from "./shade/shade-bus"
 import { prefersTwelveHour, useMinuteClock } from "./shade/use-now"
 
@@ -78,7 +78,7 @@ export function StatusBar({ overApp, open, onOpen }: { overApp: boolean; open: b
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="phone-status-time">{now ? statusTime(now, twelve) : "--:--"}</span>
-          {apps.map((id) => { const Icon = iconFor(id); return <Icon key={id} size={14} aria-hidden /> })}
+          {apps.map((id) => <AppIcon key={id} appId={id} size={14} />)}
           {more && <span className="phone-status-dot" aria-hidden />}
         </span>
         <span className="flex shrink-0 items-center gap-1.5" aria-hidden>

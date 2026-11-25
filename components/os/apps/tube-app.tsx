@@ -1,5 +1,7 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Bookmark, BookmarkCheck, Captions, ListVideo, Mail, Pause, Play, Search, Send, SkipForward, ThumbsDown, ThumbsUp, X } from "lucide-react"
 import * as A from "@/lib/os/actions"
@@ -240,21 +242,10 @@ function PillButton({ icon, label, onClick, active }: { icon?: React.ReactNode; 
     style={{ background: "var(--os-hover)", color: active ? "var(--os-accent-fg)" : "var(--os-fg)" }}>{icon}{label}</button>
 }
 
-/** Original mark: a stacked-chevron stream glyph. */
 function Wordmark() {
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span
-        className="grid h-7 w-7 place-items-center rounded-[9px]"
-        style={{
-          background: "linear-gradient(135deg, var(--os-accent), color-mix(in srgb, var(--os-accent) 45%, var(--os-fg)))",
-        }}
-      >
-        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden style={{ color: "var(--os-on-accent)" }}>
-          <path d="M4 3.2 L9 8 L4 12.8" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="12" cy="8" r="1.5" fill="currentColor" />
-        </svg>
-      </span>
+      <AppIcon appId="tube" size={28} />
       <span className="hidden text-[14px] font-semibold tracking-tight sm:inline" style={{ color: "var(--os-fg)" }}>
         JP Tube
       </span>

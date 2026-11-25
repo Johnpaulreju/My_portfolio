@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import type { FSNode, FSNodeKind } from "./types"
-import { PORTFOLIO_STATUS, PROFILE } from "./content"
+import { PROFILE, PROJECTS } from "./content"
 
 const STORAGE_KEY = "jp-os-fs-v2"
 
@@ -33,15 +33,11 @@ const README = [
 ].join("\n")
 
 const IDEAS = [
-  "Learning and personal work",
+  "Learning and selected work",
   "",
   PROFILE.learning,
   "",
-  PORTFOLIO_STATUS.projects.title,
-  PORTFOLIO_STATUS.projects.body,
-  "",
-  PORTFOLIO_STATUS.lab.title,
-  PORTFOLIO_STATUS.lab.body,
+  ...PROJECTS.map((project) => `${project.title} — ${project.desc}`),
 ].join("\n")
 
 /**

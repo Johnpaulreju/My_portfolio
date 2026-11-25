@@ -113,12 +113,17 @@ export function ResumeProfile() {
   )
 }
 
-export function PersonalWork() {
+export function SelectedWork({ limit }: { limit?: number }) {
+  const projects = SHOW_PROJECTS ? PROJECTS.slice(0, limit) : []
   return (
-    <section className={`${styles.section} ${styles.keepTogether}`}>
-      <h2>{SHOW_PROJECTS && PROJECTS.length > 0 ? "Selected projects" : "Personal work"}</h2>
-      {SHOW_PROJECTS && PROJECTS.length > 0 ? PROJECTS.slice(0, 6).map((project) => (
-        <div key={project.id}><h3>{project.title}</h3><p>{project.stack}. {project.desc}</p></div>
+    <section className={styles.section}>
+      <h2>{projects.length ? "Selected projects" : "Personal work"}</h2>
+      {projects.length ? projects.map((project) => (
+        <div className={styles.keepTogether} key={project.id}>
+          <h3>{project.url ? <a href={project.url}>{project.title}</a> : project.title}</h3>
+          <p>{project.desc}</p>
+          {project.stack && <p className={styles.muted}>{project.stack}</p>}
+        </div>
       )) : [PORTFOLIO_STATUS.projects, PORTFOLIO_STATUS.lab].map((status) => (
         <div key={status.title}><h3>{status.title}</h3><p>{status.body}</p></div>
       ))}
@@ -148,7 +153,7 @@ export function Availability() {
 }
 
 export function Learning() {
-  return <section className={styles.section}><h2>Up next: GenAI engineering</h2><p>{PROFILE_LEARNING}</p></section>
+  return <section className={styles.section}><h2>What I’m learning</h2><p>{PROFILE_LEARNING}</p></section>
 }
 
 /** Visible server content while the interactive shell hydrates, and without JS. */

@@ -1,5 +1,7 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import {
   useCallback,
   useEffect,
@@ -456,7 +458,7 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
         role="menubar"
       >
         <span className="mr-1.5 flex items-center gap-1.5 pl-1 pr-1 text-[11.5px] font-semibold tracking-wide">
-          <PrismMark />
+          <AppIcon appId="player" size={14} />
           <span style={{ color: "var(--os-muted)" }}>Prism</span>
         </span>
 
@@ -857,18 +859,6 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
 }
 
 /* ------------------------------------------------------------------ fragments */
-
-/** Original mark: a light ray split by a prism. No cone, no traffic anything. */
-function PrismMark() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden focusable="false">
-      <path d="M8 2.2 14 13H2L8 2.2Z" fill="none" stroke="var(--os-accent)" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M2.6 8.6h5.2" stroke="var(--os-fg)" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M9.4 7.2 13.8 6" stroke="var(--os-accent)" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M9.6 9.1 14 9.4" stroke="var(--os-fg)" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 function Overlay({ children }: { children: ReactNode }) {
   return (

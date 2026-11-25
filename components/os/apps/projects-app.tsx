@@ -5,7 +5,7 @@ import { Folder, FolderOpen, Grid2X2, List as ListIcon, Search } from "lucide-re
 import { PORTFOLIO_STATUS, PROJECTS, SHOW_PROJECTS, type Project } from "@/lib/os/content"
 import { ComingSoon, Pill } from "./kit"
 
-const CATEGORIES = ["All", "AI / ML", "Full-Stack", "Computer Vision", "Automation"] as const
+const CATEGORIES = ["All", ...new Set(PROJECTS.map((project) => project.category))]
 
 export function ProjectsApp() {
   return SHOW_PROJECTS && PROJECTS.length > 0 ? (
@@ -178,7 +178,7 @@ function ProjectBrowser() {
               <ProjectGlyph small />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold" style={{ color: "var(--os-fg)" }}>
-                  {selected.title}
+                  {selected.url ? <a href={selected.url} target="_blank" rel="noreferrer" className="underline">{selected.title}</a> : selected.title}
                 </p>
                 <p className="text-[12px]" style={{ color: "var(--os-muted)" }}>
                   {selected.desc}

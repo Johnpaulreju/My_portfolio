@@ -1,4 +1,4 @@
-import { Achievements, Experience, PersonalWork, ReadablePage, ResumeProfile, Skills } from "@/components/site/profile"
+import { Achievements, Experience, SelectedWork, ReadablePage, ResumeProfile, Skills } from "@/components/site/profile"
 import { PrintButton } from "@/components/site/print-button"
 import styles from "@/components/site/site.module.css"
 import { pageMetadata } from "@/lib/site"
@@ -15,7 +15,7 @@ export default function ResumePage() {
           <p>Print this complete resume, or choose Save as PDF in your browser’s print dialog.</p>
         </div>
         <ResumeProfile />
-        <Experience /><Skills showStatus /><PersonalWork /><Achievements />
+        <Experience /><Skills showStatus /><SelectedWork limit={6} /><Achievements />
       </article>
     </ReadablePage>
   )

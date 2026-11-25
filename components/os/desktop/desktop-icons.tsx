@@ -5,7 +5,7 @@ import { ExternalLink, Pencil, Trash2 } from "lucide-react"
 import { DESKTOP_APPS } from "@/lib/os/app-meta"
 import { useFS } from "@/lib/os/fs-store"
 import { useWM } from "@/lib/os/wm-store"
-import { openApp, openNode } from "@/lib/os/actions"
+import { isAppShortcut, openApp, openNode } from "@/lib/os/actions"
 import { useNotify } from "@/lib/os/notify-store"
 import type { WriteResult } from "@/lib/os/fs-store"
 import { AppIcon } from "@/components/os/app-icon"
@@ -125,6 +125,8 @@ export function DesktopIcons({
             >
               {entry.kind === "app" ? (
                 <AppIcon appId={entry.appId} size={40} />
+              ) : isAppShortcut(entry.node) ? (
+                <AppIcon appId={entry.node.appId} size={40} />
               ) : entry.node.kind === "folder" ? (
                 <FolderGlyph />
               ) : (

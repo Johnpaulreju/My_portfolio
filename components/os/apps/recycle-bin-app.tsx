@@ -1,5 +1,8 @@
 "use client"
 
+import { isAppShortcut } from "@/lib/os/actions"
+import { AppIcon } from "@/components/os/app-icon"
+
 import { useEffect, useMemo, useState } from "react"
 import {
   ChevronDown,
@@ -441,7 +444,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
                   }}
                 >
                   <Cell>
-                    <KindGlyph kind={n.kind} />
+                    {isAppShortcut(n) ? <AppIcon appId={n.appId} size={15} /> : <KindGlyph kind={n.kind} />}
                     <span className="truncate">{n.name}</span>
                   </Cell>
                   <Cell muted>

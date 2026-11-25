@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Power, Search } from "lucide-react"
 import { ALL_APPS, APP_META } from "@/lib/os/app-meta"
 import { search } from "@/lib/os/search"
-import { openApp, openNode } from "@/lib/os/actions"
+import { isAppShortcut, openApp, openNode } from "@/lib/os/actions"
 import { assistantInvoke } from "@/lib/os/capabilities"
 import type { AppId } from "@/lib/os/types"
 import { useWM } from "@/lib/os/wm-store"
@@ -194,7 +194,7 @@ export function StartMenu() {
                 onClick={() => openNode(f.id)}
                 className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
               >
-                <span className="text-[13px]">{f.kind === "folder" ? "📁" : "📄"}</span>
+                <span className="text-[13px]">{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
                 <span className="flex-1 truncate text-[13px]">{f.name}</span>
               </button>
             ))}
@@ -213,11 +213,11 @@ export function StartMenu() {
                 onClick={() => openNode(f.id)}
                 className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
               >
-                <span>{f.kind === "folder" ? "📁" : "📄"}</span>
+                <span>{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12.5px]">{f.name}</span>
                   <span className="block text-[11px]" style={{ color: "var(--os-muted)" }}>
-                    {f.kind === "folder" ? "Folder" : "Text document"}
+                    {isAppShortcut(f) ? "App shortcut" : f.kind === "folder" ? "Folder" : "Text document"}
                   </span>
                 </span>
               </button>

@@ -193,6 +193,8 @@ function makeDoc(d: DocInput): Doc {
 const APP_HINTS: Record<AppId, { blurb: string; alias: string }> = {
   about: { blurb: "Profile, background and the short version.", alias: "profile bio who summary intro" },
   projects: { blurb: SHOW_PROJECTS ? "The project archive." : PORTFOLIO_STATUS.projects.body, alias: "work portfolio builds repos apps made" },
+  mygpt: { blurb: "Ask Johnpaul about his work, skills and projects.", alias: "my gpt ask jp askjp johnpaul portfolio assistant chat chatbot conversation questions" },
+  blog: { blurb: "Read Johnpaul’s articles.", alias: "writing posts articles journal reading medium" },
   experience: { blurb: "Roles and study, year by year.", alias: "career history job work education timeline" },
   skills: { blurb: "Tools for building, plus ongoing study.", alias: "tech technology stack tools languages frameworks" },
   achievements: { blurb: "Awards and certifications.", alias: "awards certs certificates trophy recognition" },
@@ -299,7 +301,7 @@ function contentDocs(): Doc[] {
       detail: PROFILE.learning,
       appId: "skills",
       boost: 3,
-      body: "learning studying AI agents new AI technology tools genai generative engineer next upcoming",
+      body: `${PROFILE.learning} learning studying ongoing study`,
     }),
   )
 
@@ -311,7 +313,7 @@ function contentDocs(): Doc[] {
       kind: "profile",
       bucket: "jp",
       title: status.title,
-      subtitle: "Unpublished personal work",
+      subtitle: "Portfolio update",
       detail: status.body,
       appId: section,
       boost: 2,
@@ -326,10 +328,10 @@ function contentDocs(): Doc[] {
         kind: "project",
         bucket: "jp",
         title: p.title,
-        subtitle: `${p.category} · ${p.stack} · ${p.year}`,
+        subtitle: [p.category, p.stack, p.year === "—" ? "" : p.year].filter(Boolean).join(" · "),
         detail: p.desc,
         appId: "projects",
-        boost: p.year === "2025" ? 2 : 1,
+        boost: 1,
         body: `${slug(p.title)} project build built repo case study`,
       }),
     )

@@ -2,9 +2,9 @@
 
 A portfolio that boots. Johnpaul K Reju’s interactive desktop becomes an Android-inspired home screen on phones. Profile information is also available as ordinary, readable pages.
 
-**Software Engineer · Upcoming GenAI Engineer · Bangalore, India**
+**Full Stack AI Engineer · Bengaluru, Karnataka, India**
 
-I build websites, React Native apps and AI tools. Next, I’m growing into a GenAI engineer by studying AI agents.
+I build clinical software, storefronts and tools for developers.
 
 - [Portfolio OS](https://www.johnpaulreju.in)
 - [About](https://www.johnpaulreju.in/about)
@@ -20,8 +20,10 @@ The desktop includes draggable windows, a taskbar, Start menu, themes, and a loc
 | App | Content |
 | --- | --- |
 | About, Skills, Experience | Shared profile, tools, and attributed work and education history |
-| Projects | Coming soon. A few projects are cooking in the CPU. |
-| Lab | Coming soon. Small experiments are still cooking. |
+| Blog | Medium articles and public social profiles |
+| MyGPT | Portfolio chat with a message composer, source links and conversations saved in this browser |
+| Projects | Employer and client projects, personal work and academic research. |
+| Lab | Notes on model training and graduate research. |
 | Contact | Hands an email draft to the visitor’s own mail app |
 | Resume | Resume viewer with browser printing; `/resume` provides a readable, printable page |
 | Nimbus, Vantage | Original browser and search interfaces for exploring the portfolio |
@@ -30,7 +32,7 @@ The desktop includes draggable windows, a taskbar, Start menu, themes, and a loc
 | Media Player, JP Tube | Local players with generated coding demos; JP Tube has an empty published catalogue and an explicit demo mode |
 | Minesweeper, Solitaire, Ridgeline | Games within the OS |
 
-Projects and Lab do not publish a personal project catalogue. Employer work stays attributed in the work history. A public GitHub profile link is not an ownership claim over every repository.
+Project descriptions identify the employer, partner, client or academic institution where relevant and describe Johnpaul’s contribution.
 
 ## Architecture
 
@@ -49,7 +51,7 @@ lib/site.ts                    canonical origin, page metadata, profile helpers
 
 The server home passes visible profile content to `PortfolioShell`. The shell renders it during initial hydration; the standalone pages remain available without JavaScript.
 
-The stack is Next.js 16, React 19, TypeScript, Tailwind CSS, Zustand, and Lucide. The existing `--os-*` tokens style both the OS and readable pages. App tiles use pinned upstream Lucide SVGs, bundled copies, and built-in glyph recovery. [Asset sources and licenses](public/brand/README.md).
+The stack is Next.js 16, React 19, TypeScript, Tailwind CSS, Zustand, and Lucide. The existing `--os-*` tokens style both the OS and readable pages. App icons use locally bundled artwork drawn from familiar applications. A Lucide glyph provides a fallback if an image fails to load. [Asset sources and licenses](public/brand/README.md).
 
 ## Run and check
 
@@ -64,7 +66,15 @@ pnpm build
 
 `doc/check-seo.cjs` checks the SEO data, rendered profile content, icon recovery transitions, and asset mappings. It does not replace an integrated build or browser QA.
 
-Copy `.env.example` only if you need to set `NEXT_PUBLIC_SITE_URL`. It must be an HTTPS origin with no credentials, path, query, or fragment. Unset uses the existing Vercel origin above; invalid values fail validation. Change it only after confirming the new domain belongs to you and is routed correctly.
+The optional `NEXT_PUBLIC_SITE_URL` controls the public canonical origin. It must be an HTTPS origin with no credentials, path, query, or fragment. Unset uses the existing Vercel origin above; invalid values fail validation. Change it only after confirming the new domain belongs to you and is routed correctly.
+
+## Ask Johnpaul
+
+MyGPT, Nimbus’s JP assistant and the Terminal’s `ask` command answer from Johnpaul’s public portfolio. Gemini selects relevant records. The server returns the recorded facts and approved links. For repository questions it checks specific public repositories on Johnpaul’s GitHub account. Education records link to official campus pages.
+
+For local development, set the server-only `GEMINI_API_KEY` in the ignored `.env.local` and restart `pnpm dev`. Use a Gemini API project on Google’s Free Tier to keep usage free. The app uses `gemini-3.1-flash-lite`. Google may use unpaid requests to improve its products. Questions and up to three recent portfolio questions can be sent to Google. Keep personal or confidential details out of the conversation.
+
+On Vercel, set the secret in the deployment environment. The free-tier integration checks the visitor country header for eligible visitors. The local assistant remains available for other visitors and when the key or provider is unavailable. [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) · [Gemini API terms](https://ai.google.dev/gemini-api/terms)
 
 ## Search and launch
 
@@ -74,7 +84,7 @@ Use the [launch checklist](doc/launch-checklist.md) for integration checks, prod
 
 ## Screenshots
 
-The files in `docs/` were refreshed on 27 September 2026 from this local content-fix build: desktop, Start, context menu, phone home and the explicit JP Tube demo. They show the current empty published catalogue, not a deployed-production claim. Browser QA used Chrome with emulated phone dimensions. The lead must run final integrated checks.
+The files in `docs/` were refreshed on 27 September 2026 from this local content-fix build: desktop, Start, context menu, phone home and the explicit JP Tube demo. They predate the current project catalogue. Browser QA used Chrome with emulated phone dimensions. The lead must run final integrated checks.
 
 JP Tube’s two silent animations are generated code art, not personal recordings or project walkthroughs. Play/pause, English captions, queue/autoplay, local likes/dislikes, saves and comments can be tried without an account. This demo state lasts only while the Tube window stays open and is cleared by closing or reloading; nothing is posted. The separate Media Player uses the same first demo asset. Historical files under `reports/` and `research_notes/` are preserved with supersession notes; old ownership assumptions and launch suggestions there are not current claims.
 

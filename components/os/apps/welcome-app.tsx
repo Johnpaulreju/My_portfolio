@@ -40,8 +40,8 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
             {PROFILE.tagline}
           </h1>
           <p className="mb-6 max-w-[42ch] text-[13.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-            I&rsquo;m {PROFILE.name}, a software engineer on my way to becoming a GenAI engineer. Look
-            around, open my resume, or say hi. My projects are still compiling.
+            I&rsquo;m {PROFILE.name}. Explore my work on clinical software, client projects and
+            independent experiments, or open my resume for my experience and education.
           </p>
 
           <div className="flex flex-wrap gap-2">

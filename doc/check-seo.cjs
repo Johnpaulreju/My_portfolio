@@ -50,7 +50,7 @@ function findElement(tree, predicate) {
 async function main() {
   const load = createLoader()
   const site = load("lib/site.ts")
-  const { PROFILE, SKILL_GROUPS, TIMELINE } = load("lib/os/content.ts")
+  const { PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE } = load("lib/os/content.ts")
   assert.equal(site.resolveSiteUrl(undefined), "https://www.johnpaulreju.in")
   assert.equal(site.resolveSiteUrl("https://example.com/"), "https://example.com")
   for (const invalid of ["http://example.com", "https://user:pass@example.com", "https://example.com/path", "https://example.com/?q=x", "https://example.com/#x", "not-a-url"]) {
@@ -72,11 +72,11 @@ async function main() {
   const data = site.siteStructuredData()
   assert.deepEqual(data["@graph"].map((v) => v["@type"]), ["Person", "WebSite"])
   assert.equal(data["@graph"][0].name, PROFILE.name)
-  assert.equal(data["@graph"][0].jobTitle, "Software Engineer")
-  assert.match(data["@graph"][0].description, /GenAI Engineer/)
-  for (const m of metadata) assert.match(`${m.title.absolute} ${m.description}`, /Software Engineer/i)
-  assert.match(metadata[0].title.absolute, /Software Engineer · Upcoming GenAI Engineer/)
-  assert.match(metadata[0].openGraph.images[0].alt, /Upcoming GenAI Engineer/)
+  assert.equal(data["@graph"][0].jobTitle, PROFILE.title)
+  assert.ok(data["@graph"][0].description.includes(PROFILE.summary))
+  for (const m of metadata) assert.ok(m.title.absolute.includes(PROFILE.title))
+  assert.ok(metadata[0].title.absolute.includes(PROFILE.headline))
+  assert.ok(metadata[0].openGraph.images[0].alt.includes(PROFILE.headline))
   assert.doesNotMatch(JSON.stringify(data), /85%|70%|ICU Predictor|johnpaul\.dev/)
   assert.doesNotMatch(fs.readFileSync(path.join(root, "lib/os/system-store.ts"), "utf8"), /odyssey/i, "No employer name in Wi-Fi names")
   console.log("PASS origin validation, unique metadata, identity titles, canonicals, sitemap, robots and JSON-LD")
@@ -94,8 +94,13 @@ async function main() {
     assert.equal((html.match(/<h1\b/g) || []).length, 1)
     assert.equal((html.match(/<main\b/g) || []).length, 1)
     assert.doesNotMatch(html, /85%|70%|ICU Predictor|johnpaul\.dev/)
-    for (const group of SKILL_GROUPS) for (const item of group.items) assert.ok(html.includes(item.name), item.name)
-    if (name === "resume") for (const event of TIMELINE) assert.ok(html.includes(event.org), event.org)
+    for (const group of SKILL_GROUPS) for (const item of group.items) assert.ok(html.includes(renderToStaticMarkup(item.name)), item.name)
+    for (const project of (name === "resume" ? PROJECTS.slice(0, 6) : PROJECTS)) {
+      assert.ok(html.includes(renderToStaticMarkup(project.title)), project.title)
+      assert.ok(html.includes(renderToStaticMarkup(project.desc)), project.title)
+      if (project.url) assert.ok(html.includes(`href="${project.url}"`), project.url)
+    }
+    if (name === "resume") for (const event of TIMELINE) assert.ok(html.includes(renderToStaticMarkup(event.org)), event.org)
   }
   const md = load("app/about.md/route.ts").GET()
   assert.equal(md.headers.get("content-type"), "text/markdown; charset=utf-8")
@@ -104,6 +109,11 @@ async function main() {
   const mdText = await md.text()
   assert.ok(mdText.includes("\n\n## Skills\n\n"))
   assert.ok(mdText.includes(`${PROFILE.headline} · ${PROFILE.location}`))
+  assert.ok(mdText.includes("\n\n## Selected projects\n\n"))
+  for (const project of PROJECTS) {
+    assert.ok(mdText.includes(project.desc), project.title)
+    if (project.url) assert.ok(mdText.includes(`[${project.title}](${project.url})`))
+  }
   const llms = await load("app/llms.txt/route.ts").GET().text()
   assert.ok(llms.startsWith(`# ${PROFILE.name}`))
   assert.ok(llms.includes(`> ${PROFILE.headline}.`))
@@ -115,41 +125,30 @@ async function main() {
   const { APP_META } = load("lib/os/app-meta.ts")
   const { brandIcon } = load("lib/os/brand-icons.ts")
   for (const id of Object.keys(APP_META)) {
-    const { remote, local } = brandIcon(id)
-    assert.match(remote, /^https:\/\/raw\.githubusercontent\.com\/lucide-icons\/lucide\/[a-f0-9]{40}\/icons\/[a-z0-9-]+\.svg$/)
+    const local = brandIcon(id)
+    assert.match(local, /^\/brand\/apps\/[a-z0-9-]+\.(svg|png)$/)
     assert.ok(fs.existsSync(path.join(root, "public", local)), `Bundled image exists for ${id}`)
   }
-  let state = [], cursor = 0
-  const icons = createLoader({ react: { ...React, useState(initial) {
-    const index = cursor++
-    if (!(index in state)) state[index] = initial
-    return [state[index], (next) => { state[index] = typeof next === "function" ? next(state[index]) : next }]
+  let failed = false
+  const icons = createLoader({ react: { ...React, useState() {
+    return [failed, (next) => { failed = next }]
   } } })("components/os/app-icon.tsx")
-  for (const appId of ["browser", "vantage"]) {
-    state = []; cursor = 0
+  for (const appId of Object.keys(APP_META)) {
+    failed = false
     const tile = icons.AppIcon({ appId, size: 40 })
     assert.equal(tile.props["aria-hidden"], "true")
     const component = findElement(tile, (e) => e.type.name === "IconImage")
-    const render = () => { cursor = 0; return component.type(component.props) }
-    let tree = render()
-    let img = findElement(tree, (e) => e.type === "img")
-    assert.equal(img.props.src, brandIcon(appId).remote)
-    assert.equal(img.props.width, img.props.height)
-    img.props.onLoad()
-    assert.equal(findElement(render(), (e) => e.type === "img").props.style.opacity, 1)
+    const render = () => component.type(component.props)
+    const img = render()
+    assert.equal(img.type, "img")
+    assert.equal(img.props.src, brandIcon(appId))
+    assert.equal(img.props.width, 40)
+    assert.equal(img.props.height, 40)
+    assert.equal(img.props.alt, "")
     img.props.onError()
-    tree = render()
-    img = findElement(tree, (e) => e.type === "img")
-    assert.equal(img.props.src, brandIcon(appId).local)
-    assert.equal(img.props.style.opacity, 0)
-    img.props.onLoad()
-    assert.equal(findElement(render(), (e) => e.type === "img").props.style.opacity, 1)
-    img.props.onError()
-    tree = render()
-    assert.equal(findElement(tree, (e) => e.type === "img"), null)
-    assert.equal(React.Children.toArray(tree.props.children)[0].props.style.visibility, "visible")
+    assert.equal(render().type, icons.iconFor(appId))
   }
-  console.log(`PASS all ${Object.keys(APP_META).length} icon paths and remote → local → glyph error-handler transitions (source harness, not browser)`)
+  console.log(`PASS all ${Object.keys(APP_META).length} local app images and glyph fallbacks`)
 
   if (process.argv.includes("--render-share-image")) {
     const response = load("app/opengraph-image.tsx").default()

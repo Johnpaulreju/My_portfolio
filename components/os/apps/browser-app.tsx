@@ -1,5 +1,7 @@
 "use client"
 
+import { AppIcon } from "@/components/os/app-icon"
+
 import {
   useCallback,
   useEffect,
@@ -51,6 +53,7 @@ import {
   type AssistantAnswer,
   type AssistantTurn,
 } from "@/lib/os/assistant"
+import { askProfile } from "@/lib/os/ask-profile"
 import { assistantInvoke } from "@/lib/os/capabilities"
 import { PROFILE, SHOW_PROJECTS } from "@/lib/os/content"
 import { useFS } from "@/lib/os/fs-store"
@@ -68,8 +71,8 @@ import type { AppId, FSNode, WindowInstance } from "@/lib/os/types"
  *
  *   LOCAL  lib/os/search.ts over apps, files and the portfolio. No network,
  *          ever. Works with the cable unplugged.
- *   JP     lib/os/assistant.ts. Grounded in lib/os/content.ts and nothing
- *          else; when the profile doesn't say, the answer says so.
+ *   JP     Public profile answers from /api/ask, with local answers and OS actions
+ *          from lib/os/assistant.ts when offline.
  *   WEB    Real HTTP, client-side, no proxy and no key, to the Wikipedia
  *          REST APIs. Other websites open externally. If a request fails,
  *          the failure is what gets rendered.
@@ -78,8 +81,6 @@ import type { AppId, FSNode, WindowInstance } from "@/lib/os/types"
  * change goes through lib/os/actions.ts, and anything driven by a typed
  * sentence goes through the lib/os/capabilities.ts allowlist.
  *
- * Artwork is original: the Nimbus mark and the unplugged-connector glyph are
- * drawn here from primitives. No vendor logos, no offline dinosaur.
  * ------------------------------------------------------------------ */
 
 /* ================================================================== *
@@ -106,13 +107,13 @@ type Mode = "local" | "jp" | "web"
 
 const MODES: { id: Mode; label: string; blurb: string }[] = [
   { id: "local", label: "Local", blurb: "Apps, files and portfolio content on this machine. Never needs a network." },
-  { id: "jp", label: "JP", blurb: "Ask about Johnpaul. Answered only from what he has published." },
+  { id: "jp", label: "JP", blurb: "Ask about Johnpaul’s portfolio. Questions may be sent to Google Gemini." },
   { id: "web", label: "Web", blurb: "Live results from Wikipedia. Other websites open externally. Needs a connection." },
 ]
 
 type View =
   | { k: "home" }
-  | { k: "results"; mode: Mode; q: string }
+  | { k: "results"; mode: Mode; q: string; localOnly?: boolean }
   | { k: "wiki"; title: string }
   | { k: "gh" }
   | { k: "external"; url: string }
@@ -226,7 +227,7 @@ type Interp =
   | { k: "node"; node: FSNode; label: string; detail: string }
   | { k: "desktop"; label: string; detail: string }
   | { k: "url"; url: string; label: string; detail: string }
-  | { k: "ask"; q: string; label: string; detail: string }
+  | { k: "ask"; q: string; label: string; detail: string; localOnly?: boolean }
   | { k: "find"; q: string; mode: Mode; label: string; detail: string }
 
 function interpret(raw: string, mode: Mode, webAvailable: boolean): Interp | null {
@@ -272,7 +273,7 @@ function interpret(raw: string, mode: Mode, webAvailable: boolean): Interp | nul
 
   // 6. In Local mode a question still goes to the assistant — it is the only
   //    surface that can answer one.
-  if (looksLikeQuestion(q)) return { k: "ask", q, label: q, detail: "Ask JP" }
+  if (looksLikeQuestion(q)) return { k: "ask", q, label: q, detail: "Ask JP on this PC", localOnly: true }
 
   return { k: "find", q, mode: "local", label: q, detail: "Search this PC" }
 }
@@ -453,7 +454,12 @@ function useWikiSummary(title: string | null, enabled: boolean) {
  * ================================================================== */
 
 type Tab = { id: string; history: View[]; hi: number; mode: Mode }
-type Turn = { id: number; q: string; a: AssistantAnswer }
+type Turn = AssistantTurn & {
+  id: number
+  fallback?: AssistantAnswer
+  remoteQuestion?: boolean
+  links?: { label: string; url: string }[]
+}
 type Flash = { id: number; text: string; bad: boolean }
 
 let tabSeq = 0
@@ -470,21 +476,9 @@ const OFFLINE_WHY: Record<NetStatus, string> = {
   online: "",
 }
 
-/**
- * A deep link arrives as `payload.q` on the window this app was just opened
- * into. app-host doesn't pass `win` to Nimbus today, so the payload is read
- * from the focused window instead — which, at the instant a new window mounts
- * its app, is always this one. The `win` prop takes precedence whenever it is
- * supplied, so wiring it through later needs no change here.
- */
-function deepLinkQuery(win?: WindowInstance): string {
-  const direct = win?.payload?.q
-  if (typeof direct === "string" && direct.trim()) return direct.trim()
-  if (win) return ""
-  const st = useWM.getState()
-  const focused = st.windows.find((w) => w.id === st.focusedId)
-  if (focused?.appId !== "browser") return ""
-  const q = focused.payload?.q
+/** Read only the query explicitly passed to this Nimbus window. */
+function deepLinkQuery(win: WindowInstance): string {
+  const q = win.payload?.q
   return typeof q === "string" ? q.trim() : ""
 }
 
@@ -509,7 +503,7 @@ function viewForUrl(url: string): View {
   return { k: "external", url }
 }
 
-export function BrowserApp({ win }: { win?: WindowInstance }) {
+export function BrowserApp({ win }: { win: WindowInstance }) {
   const netStatus = useSystem((s) => s.status())
   const airplane = useSystem((s) => s.airplane)
   const isOnline = netStatus === "online"
@@ -518,8 +512,8 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
     const seed = deepLinkQuery(win)
     const base: Tab = { id: "t0", history: [HOME], hi: 0, mode: "local" }
     if (!seed) return [base]
-    const mode: Mode = looksLikeQuestion(seed) ? "jp" : "local"
-    return [{ ...base, history: [HOME, { k: "results", mode, q: seed }], hi: 1, mode }]
+    const mode: Mode = win.payload?.askJP === true || looksLikeQuestion(seed) ? "jp" : "local"
+    return [{ ...base, history: [HOME, { k: "results", mode, q: seed, localOnly: win.payload?.askJP !== true }], hi: 1, mode }]
   })
   const [activeId, setActiveId] = useState("t0")
   const [reloadKey, setReloadKey] = useState(0)
@@ -610,7 +604,7 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
           navigate(viewForUrl(i.url))
           break
         case "ask":
-          navigate({ k: "results", mode: "jp", q: i.q })
+          navigate({ k: "results", mode: "jp", q: i.q, localOnly: i.localOnly })
           break
         case "find":
           navigate({ k: "results", mode: i.mode, q: i.q })
@@ -652,6 +646,10 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
     (q: string, m: Mode) => {
       const text = q.trim()
       if (!text) return
+      if (m === "jp") {
+        A.openMyGPT(text)
+        return
+      }
       // Falling back silently would be a small lie. Say why, then fall back.
       if (m === "web" && !isOnline) {
         report(
@@ -670,31 +668,58 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
 
   /* ---------------------------------------------------- JP transcript -- */
 
-  const askMore = useCallback((raw: string) => {
+  const askMore = useCallback((raw: string, allowRemote = true) => {
     const q = raw.trim()
     if (!q) return
-    setTurns((prev) => {
-      const history: AssistantTurn[] = prev.map((t) => ({ q: t.q, a: t.a }))
-      return [...prev, { id: (turnSeq += 1), q, a: ask(q, history) }]
+    const id = ++turnSeq
+    setTurns((previous) => {
+      const history = previous.map((t) => ({ q: t.q, a: t.fallback ?? t.a }))
+      const local = ask(q, history)
+      const turn: Turn = { id, q, a: local }
+      if (allowRemote && isOnline && !local.localAction) {
+        turn.remoteQuestion = true
+        turn.fallback = local
+        turn.a = { text: "Checking Johnpaul’s profile…", confidence: 0 }
+      }
+      return [...previous, turn]
     })
+  }, [isOnline])
+
+  const requests = useRef(new Map<number, AbortController>())
+  useEffect(() => {
+    const active = requests.current
+    return () => {
+      active.forEach((controller) => controller.abort())
+      active.clear()
+    }
   }, [])
 
-  // A JP address IS a turn, seeded exactly once per distinct question. Without
-  // the ledger, walking back and forward through history — or opening the same
-  // question in a second tab — would stutter the same turn into the transcript.
-  const seededJp = useRef<Set<string> | undefined>(undefined)
-  const jpQuery = view.k === "results" && view.mode === "jp" ? view.q : null
   useEffect(() => {
-    if (!jpQuery) return
-    const seen = (seededJp.current ??= new Set<string>())
-    if (seen.has(jpQuery)) return
-    seen.add(jpQuery)
-    setTurns((prev) => {
-      if (prev.length > 0 && prev[prev.length - 1].q === jpQuery) return prev
-      const history: AssistantTurn[] = prev.map((t) => ({ q: t.q, a: t.a }))
-      return [...prev, { id: (turnSeq += 1), q: jpQuery, a: ask(jpQuery, history) }]
-    })
-  }, [jpQuery])
+    for (const [index, turn] of turns.entries()) {
+      const local = turn.fallback
+      if (!local || requests.current.has(turn.id)) continue
+      const controller = new AbortController()
+      requests.current.set(turn.id, controller)
+      const previous = turns.slice(0, index).filter((t) => t.remoteQuestion).slice(-3).map((t) => t.q)
+      void askProfile(turn.q, previous, controller.signal).catch(() => null).then((reply) => {
+        if (controller.signal.aborted) return
+        requests.current.delete(turn.id)
+        const a = reply ? { text: reply.text, confidence: 1 } : local
+        setTurns((current) => current.map((t) => t.id === turn.id ? { id: t.id, q: t.q, a, links: reply?.links, remoteQuestion: true } : t))
+      })
+    }
+  }, [turns])
+
+  // Back/forward and tab switches revisit addresses without duplicating turns.
+  const seededJp = useRef(new Set<string>())
+  const jpQuery = view.k === "results" && view.mode === "jp" ? view.q : null
+  const localOnly = view.k === "results" && view.localOnly === true
+  useEffect(() => {
+    const key = JSON.stringify([jpQuery, localOnly])
+    if (!jpQuery || seededJp.current.has(key)) return
+    seededJp.current.add(key)
+    askMore(jpQuery, !localOnly)
+  }, [jpQuery, localOnly, askMore])
 
   /* ----------------------------------------------------- omnibox sync -- */
 
@@ -740,7 +765,7 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
     for (const r of suggestions) {
       out.push({
         key: r.id,
-        icon: iconForKind(r.kind),
+        icon: iconForKind(r.kind, r.appId),
         primary: <Marked text={r.title} query={omnibox} />,
         secondary: r.subtitle,
         run: () => runResult(r),
@@ -802,7 +827,7 @@ export function BrowserApp({ win }: { win?: WindowInstance }) {
                   boxShadow: on ? `inset 0 2px 0 0 ${TINT[1]}` : undefined,
                 }}
               >
-                <NimbusMark size={13} />
+                <AppIcon appId="browser" size={13} />
                 <span className="flex-1 truncate">{tm.title}</span>
                 <button
                   type="button"
@@ -977,17 +1002,6 @@ function NavButton({
   )
 }
 
-/** Original mark: a coral disc behind two stacked bars. Drawn, not licensed. */
-function NimbusMark({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden className="shrink-0">
-      <circle cx="8" cy="8" r="7.2" fill={TINT[1]} opacity="0.2" />
-      <rect x="3" y="5" width="10" height="2" rx="1" fill={TINT[1]} />
-      <rect x="4.5" y="8.5" width="7" height="2" rx="1" fill={TINT[0]} />
-    </svg>
-  )
-}
-
 function ModePills({
   mode,
   onPick,
@@ -1053,8 +1067,9 @@ type OmniRowItem = {
 function iconForInterp(i: Interp): ReactNode {
   switch (i.k) {
     case "app":
-      return <AppWindow size={14} />
+      return <AppIcon appId={i.appId} size={14} />
     case "node":
+      if (A.isAppShortcut(i.node)) return <AppIcon appId={i.node.appId} size={14} />
       return i.node.kind === "folder" || i.node.kind === "zip" ? <FolderOpen size={14} /> : <FileText size={14} />
     case "desktop":
       return <HardDrive size={14} />
@@ -1067,7 +1082,8 @@ function iconForInterp(i: Interp): ReactNode {
   }
 }
 
-function iconForKind(kind: ResultKind): ReactNode {
+function iconForKind(kind: ResultKind, appId?: AppId): ReactNode {
+  if ((kind === "app" || kind === "file") && appId && A.isAppId(appId)) return <AppIcon appId={appId} size={14} />
   switch (kind) {
     case "app":
       return <AppWindow size={14} />
@@ -1409,7 +1425,7 @@ function HomePage({
     <div className="grid min-h-full place-items-center p-8">
       <div className="w-full max-w-md text-center">
         <span className="mb-4 inline-block">
-          <NimbusMark size={38} />
+          <AppIcon appId="browser" size={38} />
         </span>
         <p className="mb-1 text-[26px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
           {PROFILE.name}
@@ -1524,7 +1540,7 @@ function OfflineHome({
       ? [
           {
             label: "Browse projects",
-            hint: "The project archive, offline and complete.",
+            hint: "Explore Johnpaul’s projects and contributions.",
             icon: <FolderOpen size={15} />,
             go: () => onReport(A.openApp("projects"), "Opened Projects."),
           },
@@ -1592,7 +1608,7 @@ function OfflineHome({
           }
         />
         <span className="text-[11.5px]" style={{ color: "var(--os-muted)" }}>
-          Local and JP need no network at all.
+          Local search and offline portfolio answers remain available.
         </span>
       </div>
     </div>
@@ -1656,7 +1672,7 @@ function LocalResults({
   return (
     <div className="mx-auto w-full max-w-[920px] px-5 py-5 sm:px-8">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <NimbusMark size={18} />
+        <AppIcon appId="browser" size={18} />
         <span className="text-[15px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
           Nimbus
         </span>
@@ -1710,7 +1726,7 @@ function LocalResults({
                       className="group flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
                     >
                       <span className="mt-0.5 shrink-0" style={{ color: "var(--os-muted)" }}>
-                        {iconForKind(r.kind)}
+                        {iconForKind(r.kind, r.appId)}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span
@@ -1786,7 +1802,7 @@ function JPConversation({
   return (
     <div className="mx-auto w-full max-w-[1020px] px-5 py-5 sm:px-8">
       <div className="mb-4 flex items-center gap-2.5">
-        <NimbusMark size={18} />
+        <AppIcon appId="browser" size={18} />
         <span className="text-[15px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
           Nimbus
         </span>
@@ -1809,7 +1825,7 @@ function JPConversation({
               Ask about Johnpaul
             </span>
             <span className="ml-auto text-[10.5px]" style={{ color: "var(--os-muted)" }}>
-              grounded in his profile only
+              public profile
             </span>
           </header>
 
@@ -1854,6 +1870,14 @@ function JPConversation({
                     <p className="text-[13px] leading-relaxed" style={{ color: "var(--os-fg)" }}>
                       <TypedText text={t.a.text} animate={t.id === last?.id} />
                     </p>
+
+                    {t.links && t.links.length > 0 && (
+                      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+                        {t.links.map((link) => (
+                          <li key={link.url}><a href={link.url} target="_blank" rel="noreferrer" className="text-[var(--os-accent-fg)] underline">{link.label}</a></li>
+                        ))}
+                      </ul>
+                    )}
 
                     {t.a.facts && t.a.facts.length > 0 && (
                       <dl
@@ -1914,6 +1938,9 @@ function JPConversation({
             <div ref={endRef} />
           </div>
 
+          <p className="px-4 py-1.5 text-[11px]" style={{ color: "var(--os-muted)" }}>
+            Questions may be sent to Google Gemini. Share public information only.
+          </p>
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -2139,7 +2166,7 @@ function WebResults({
   return (
     <div className="mx-auto w-full max-w-[1020px] px-5 py-5 sm:px-8">
       <div className="mb-3 flex items-center gap-2.5">
-        <NimbusMark size={18} />
+        <AppIcon appId="browser" size={18} />
         <span className="text-[15px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
           Nimbus
         </span>
