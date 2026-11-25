@@ -69,7 +69,7 @@ export function AppHost({ appId, win }: { appId: AppId; win: WindowInstance }) {
   // Keyed by window id so "Try again" genuinely remounts this app, and so one
   // window's crash never bleeds into another instance of the same app.
   return (
-    <div ref={surface} className="h-full min-h-0" onPlayCapture={(event) => {
+    <div ref={surface} className="h-full min-h-0 [container:app-surface/inline-size]" onPlayCapture={(event) => {
       // An asynchronously loaded media element can start after the session was
       // covered. Pause it as well, preserving its playback position.
       if (!active && event.target instanceof HTMLMediaElement) event.target.pause()

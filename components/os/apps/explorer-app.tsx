@@ -1,5 +1,7 @@
 "use client"
 
+import { FileContextMenu, localPoint } from "./file-context-menu"
+
 import { AppIcon } from "@/components/os/app-icon"
 
 import { useEffect, useRef, useState } from "react"
@@ -31,6 +33,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
   const [history, setHistory] = useState<(string | null)[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const surface = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; node: FSNode | null } | null>(null)
 
   const items = children(cwd)
@@ -83,7 +86,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={surface} className="relative flex h-full min-h-0 flex-col">
       {/* Toolbar */}
       <div
         className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5"
@@ -131,7 +134,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
         }}
         onContextMenu={(e) => {
           e.preventDefault()
-          setMenu({ x: e.clientX, y: e.clientY, node: null })
+          setMenu({ ...localPoint(e, surface.current), node: null })
         }}
       >
         {items.length === 0 ? (
@@ -153,7 +156,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
                   e.preventDefault()
                   e.stopPropagation()
                   setSelected(n.id)
-                  setMenu({ x: e.clientX, y: e.clientY, node: n })
+                  setMenu({ ...localPoint(e, surface.current), node: n })
                 }}
                 className={`flex flex-col items-center gap-1.5 rounded-md p-2 transition-colors ${
                   selected === n.id ? "bg-[var(--os-active)] ring-1 ring-[var(--os-accent)]" : "hover:bg-[var(--os-hover)]"
@@ -191,18 +194,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
       </div>
 
       {menu && (
-        <div
-          className="fixed z-[300] min-w-[196px] rounded-lg p-1.5 text-[13px] shadow-2xl"
-          style={{
-            left: Math.min(menu.x, window.innerWidth - 210),
-            top: Math.min(menu.y, window.innerHeight - 190),
-            background: "var(--os-menu)",
-            border: "1px solid var(--os-border)",
-            backdropFilter: "blur(28px)",
-            color: "var(--os-fg)",
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        <FileContextMenu x={menu.x} y={menu.y}>
           {menu.node ? (
             <>
               <MenuRow label="Open" onSelect={() => { openNode(menu.node!); setMenu(null) }} />
@@ -215,7 +207,7 @@ export function ExplorerApp({ win }: { win: WindowInstance }) {
               <MenuRow icon={<FilePlus2 size={13} />} label="New text document" onSelect={() => { newItem("text"); setMenu(null) }} />
             </>
           )}
-        </div>
+        </FileContextMenu>
       )}
     </div>
   )

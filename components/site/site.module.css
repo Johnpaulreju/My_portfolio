@@ -45,11 +45,42 @@
 .fallback { height: 100dvh; overflow-y: auto; }
 .fallback .nav { padding-top: 1.5rem; }
 
+/* Work and writing appear in the same reading order with or without the desktop. */
+.profileLead { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); }
+.profileLead h1 { font-size: clamp(2.8rem,6vw,5rem); }
+.profileLead .role { color: var(--os-accent-fg); }
+.writingCard, .project { overflow: hidden; border: 1px solid var(--os-border); border-radius: 1rem; background: var(--os-card); }
+.writingCard { max-width: 34rem; }
+.writingCover { width: 100%; height: auto; aspect-ratio: 16/9; object-fit: contain; }
+.writingCard > div, .projectBody { padding: clamp(1rem,2.2vw,1.45rem); }
+.writingCard h2 { margin: 0; }
+.textAction { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; font-weight: 600; }
+.page section[tabindex="-1"] { scroll-margin-top: 1rem; }
+.projectGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; align-items: start; }
+.workPreview { width: 100%; height: auto; aspect-ratio: 2.9; object-fit: cover; object-position: top; border-bottom: 1px solid var(--os-border); }
+.projectGrid h3 { font-size: 1.25rem; letter-spacing: -.02em; }
+.projectBody .eyebrow { margin: 0 0 .3rem; }
+.projectBody .muted { font-size: .85rem; }
+.resumeProjects .project { border: 0; background: transparent; border-radius: 0; }
+.resumeProjects .projectBody { padding: .65rem 0; }
+.fallback .writingCard { margin-top: 1.5rem; }
+@media (max-width: 720px) {
+  .profileLead, .projectGrid { grid-template-columns: 1fr; }
+  .profileLead { gap: 1.5rem; }
+  .writingCard { max-width: none; }
+  .nav { column-gap: .85rem; }
+}
+
 @media print {
   /* Override the legacy OS print rule without changing global or shell styles. */
   .page, .page * { visibility: visible; }
   .page { min-height: 0; height: auto; overflow: visible; color: #111; background: white; font-size: 10pt; line-height: 1.45; }
   .container { width: 100%; }
+  .profileLead, .projectGrid { display: block; }
+  .writingCover, .workPreview { display: none; }
+  .writingCard, .project { overflow: visible; background: none; border: none; }
+  .writingCard > div, .projectBody, .resumeProjects .projectBody { padding: .25rem 0; }
+  .textAction { min-height: auto; }
   .header, .footer, .actions, .skip { display: none; }
   .content { padding: 0; }
   .content h1 { font-size: 24pt; margin: .25rem 0 .5rem; }

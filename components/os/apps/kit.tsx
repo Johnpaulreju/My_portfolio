@@ -1,20 +1,21 @@
 "use client"
 
 import type { ReactNode } from "react"
+import styles from "./kit.module.css"
 
 /** Scrollable page body used by most content apps. */
 export function Page({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`os-scroll h-full overflow-y-auto px-7 py-6 ${className}`}>{children}</div>
+  return <div className={`os-scroll ${styles.page} ${className}`}>{children}</div>
 }
 
 export function PageTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <header className="mb-6">
-      <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
+    <header className={styles.heading}>
+      <h1>
         {title}
       </h1>
       {sub && (
-        <p className="mt-1 text-[13px]" style={{ color: "var(--os-muted)" }}>
+        <p>
           {sub}
         </p>
       )}
@@ -26,7 +27,7 @@ export function PageTitle({ title, sub }: { title: string; sub?: string }) {
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-lg ${className}`}
+      className={`${styles.card} ${className}`}
       style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
     >
       {children}
@@ -47,16 +48,12 @@ export function Row({
 }) {
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 [&:not(:last-child)]:border-b"
-      style={{ borderColor: "var(--os-border)" }}
+      className={styles.row}
     >
-      {icon && <span style={{ color: "var(--os-muted)" }}>{icon}</span>}
-      <span className="text-[13px]" style={{ color: "var(--os-fg)" }}>
-        {label}
+      <span className={styles.label}>
+        {icon}{label}
       </span>
-      <span className="ml-auto truncate text-[13px]" style={{ color: "var(--os-muted)" }}>
-        {value}
-      </span>
+      {value && <span className={styles.value}>{value}</span>}
       {action}
     </div>
   )
@@ -116,10 +113,10 @@ export function Button({
     <button
       type={type}
       onClick={onClick}
-      className="rounded-md px-4 py-[7px] text-[13px] font-medium transition-all active:scale-[.98]"
+      className={styles.button}
       style={{
         background: accent ? "var(--os-accent)" : "var(--os-card)",
-        color: accent ? "#fff" : "var(--os-fg)",
+        color: accent ? "var(--os-on-accent)" : "var(--os-fg)",
         border: `1px solid ${accent ? "transparent" : "var(--os-border)"}`,
       }}
     >
@@ -129,11 +126,11 @@ export function Button({
 }
 
 /** Placeholder for a section that exists but isn't published yet. */
-export function ComingSoon({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+export function ComingSoon({ icon, title, body, children }: { icon: ReactNode; title: string; body: string; children?: ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+    <div className="os-scroll flex h-full flex-col items-center gap-3 overflow-y-auto px-6 py-5 text-center">
       <span
-        className="grid h-14 w-14 place-items-center rounded-2xl"
+        className="mt-auto grid h-14 w-14 shrink-0 place-items-center rounded-2xl"
         style={{
           background: "color-mix(in srgb, var(--os-accent) 20%, transparent)",
           color: "var(--os-accent-fg)",
@@ -144,10 +141,10 @@ export function ComingSoon({ icon, title, body }: { icon: ReactNode; title: stri
       <h1 className="text-[20px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
         {title}
       </h1>
-      <Pill tone="accent">Portfolio notes</Pill>
       <p className="max-w-[320px] text-[13px]" style={{ color: "var(--os-muted)" }}>
         {body}
       </p>
+      <div className="mb-auto">{children}</div>
     </div>
   )
 }

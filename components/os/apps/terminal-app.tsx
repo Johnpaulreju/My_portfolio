@@ -2395,7 +2395,7 @@ export function TerminalApp() {
       })}
 
       <div className="flex items-baseline">
-        <span className="shrink-0 whitespace-pre">
+        <span className="max-w-[65%] shrink-0 truncate whitespace-pre" title={`visitor@portfolio:${promptPath}$`}>
           <span style={{ color: "#4ade80" }}>visitor@portfolio</span>
           <span style={{ color: "#7c7c7c" }}>:</span>
           <span style={{ color: "#7dd3fc" }}>{promptPath}</span>

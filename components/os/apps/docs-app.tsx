@@ -1,5 +1,6 @@
 "use client"
 
+import { createPortal } from "react-dom"
 import { useSessionWork } from "@/lib/os/session-work"
 
 import {
@@ -69,6 +70,7 @@ const INK_SOFT = "#5a5a5a"
 const LINK_INK = "#1a4fbf"
 
 /** A4 proportions (1 : 1.414) at a comfortable on-screen width. */
+const MIN_ZOOM = 25
 const PAGE_W = 816
 const PAGE_H = Math.round(PAGE_W * 1.414)
 
@@ -344,7 +346,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
     if (!c) return
     const usable = c.clientWidth - 56
     if (usable > 0 && usable < PAGE_W) {
-      setZoom(Math.max(50, Math.floor((usable / PAGE_W) * 100)))
+      setZoom(Math.max(MIN_ZOOM, Math.floor((usable / PAGE_W) * 100)))
     }
   }, [])
 
@@ -352,7 +354,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
   useEffect(() => {
     if (!menu) return
     const onDown = (e: PointerEvent) => {
-      if (!ribbonRef.current?.contains(e.target as Node)) setMenu(null)
+      if (e.target instanceof Element && !e.target.closest("[data-doc-menu]") && !ribbonRef.current?.contains(e.target)) setMenu(null)
     }
     document.addEventListener("pointerdown", onDown)
     return () => document.removeEventListener("pointerdown", onDown)
@@ -661,7 +663,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
   const fitWidth = () => {
     const c = scrollRef.current
     if (!c) return
-    setZoom(Math.max(50, Math.min(200, Math.floor(((c.clientWidth - 56) / PAGE_W) * 100))))
+    setZoom(Math.max(MIN_ZOOM, Math.min(200, Math.floor(((c.clientWidth - 56) / PAGE_W) * 100))))
   }
 
   /* ---------------------------------------------------------------- *
@@ -693,6 +695,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
 
   return (
     <div
+      data-doc-editor
       className="relative flex h-full min-h-0 flex-col"
       style={{ background: "var(--os-window)" }}
       onKeyDown={onKeyDown}
@@ -701,7 +704,7 @@ export function DocsApp({ win }: { win: WindowInstance }) {
 
       {/* ---------- Tab strip + quick access ---------- */}
       <div
-        className="flex shrink-0 items-center gap-1 border-b px-2 py-1"
+        className="os-scroll flex shrink-0 items-center gap-1 overflow-x-auto whitespace-nowrap border-b px-2 py-1 [&>*]:shrink-0"
         style={{ borderColor: "var(--os-border)", background: "var(--os-chrome)" }}
       >
         <Tool icon={<Save size={15} />} label="Save (Ctrl+S)" onPress={save} />
@@ -1050,14 +1053,14 @@ export function DocsApp({ win }: { win: WindowInstance }) {
 
       {/* ---------- Status bar ---------- */}
       <div
-        className="flex shrink-0 items-center gap-4 border-t px-3 py-1 text-[11px]"
+        className="os-scroll flex shrink-0 items-center gap-4 overflow-x-auto whitespace-nowrap border-t px-3 py-1 text-[11px] [&>*]:shrink-0"
         style={{
           borderColor: "var(--os-border)",
           background: "var(--os-chrome)",
           color: "var(--os-muted)",
         }}
       >
-        <span className="truncate">{file?.name ?? "Untitled Document"}</span>
+        <span className="max-w-[12rem] truncate">{file?.name ?? "Untitled Document"}</span>
         <span className="tabular-nums">{counts.words} words</span>
         <span className="tabular-nums">{counts.chars} characters</span>
         {isPlain && <span>Plain text file — formatting is not saved</span>}
@@ -1067,14 +1070,14 @@ export function DocsApp({ win }: { win: WindowInstance }) {
             type="button"
             aria-label="Zoom out"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setZoom(Math.max(50, zoom - 10))}
+            onClick={() => setZoom(Math.max(MIN_ZOOM, zoom - 10))}
             className="grid h-6 w-6 place-items-center rounded transition-colors hover:bg-[var(--os-hover)]"
             style={{ color: "var(--os-fg)" }}
           >
             <ZoomOut size={13} />
           </button>
           <div className="w-[120px]">
-            <Slider value={zoom} min={50} max={200} step={5} onChange={setZoom} label="Zoom" />
+            <Slider value={zoom} min={MIN_ZOOM} max={200} step={5} onChange={setZoom} label="Zoom" />
           </div>
           <button
             type="button"
@@ -1258,9 +1261,40 @@ function Dropdown({
   width: number
   children: ReactNode
 }) {
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [dock, setDock] = useState<{ host: HTMLElement; left: number; top: number; maxHeight: number } | null>(null)
+
+  // The ribbon scrolls horizontally. Mount its list in the editor, beyond that clipping edge.
+  useLayoutEffect(() => {
+    const button = buttonRef.current
+    const host = button?.closest<HTMLElement>("[data-doc-editor]")
+    if (!open || !button || !host) return
+    const measure = () => {
+      const parent = host.getBoundingClientRect()
+      const anchor = button.getBoundingClientRect()
+      const top = Math.max(0, anchor.bottom - parent.top + 4)
+      setDock({
+        host,
+        left: Math.max(0, Math.min(anchor.left - parent.left, parent.width - width - 4)),
+        top,
+        maxHeight: Math.max(0, Math.min(260, parent.height - top - 4)),
+      })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(host)
+    const ribbon = button.closest(".os-scroll")
+    ribbon?.addEventListener("scroll", measure)
+    return () => {
+      observer.disconnect()
+      ribbon?.removeEventListener("scroll", measure)
+    }
+  }, [open, width])
+
   return (
     <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -1277,20 +1311,24 @@ function Dropdown({
         {trigger}
         <ChevronDown size={12} style={{ color: "var(--os-muted)" }} />
       </button>
-      {open && (
+      {open && dock && createPortal(
         <div
           role="listbox"
+          data-doc-menu
           onMouseDown={(e) => e.preventDefault()}
-          className="os-scroll absolute left-0 top-full z-50 mt-1 max-h-[260px] overflow-y-auto rounded-lg p-1 shadow-2xl"
+          className="os-scroll absolute z-50 overflow-y-auto rounded-lg p-1 shadow-2xl"
           style={{
             width,
+            left: dock.left,
+            top: dock.top,
+            maxHeight: dock.maxHeight,
             background: "var(--os-menu)",
             border: "1px solid var(--os-border)",
             backdropFilter: "blur(28px)",
           }}
         >
           {children}
-        </div>
+        </div>, dock.host,
       )}
     </div>
   )

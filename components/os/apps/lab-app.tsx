@@ -2,11 +2,17 @@
 
 import { FlaskConical } from "lucide-react"
 import { LAB, PORTFOLIO_STATUS, SHOW_LAB } from "@/lib/os/content"
-import { Card, ComingSoon, Meter, Page, PageTitle, Pill } from "./kit"
+import { useWM } from "@/lib/os/wm-store"
+import { Button, Card, ComingSoon, Meter, Page, PageTitle, Pill } from "./kit"
 
 export function LabApp() {
+  const open = useWM((state) => state.open)
   if (!SHOW_LAB || LAB.length === 0) {
-    return <ComingSoon icon={<FlaskConical size={26} />} {...PORTFOLIO_STATUS.lab} />
+    return (
+      <ComingSoon icon={<FlaskConical size={26} />} {...PORTFOLIO_STATUS.lab}>
+        <Button variant="accent" onClick={() => open("projects")}>Explore projects</Button>
+      </ComingSoon>
+    )
   }
   return (
     <Page>

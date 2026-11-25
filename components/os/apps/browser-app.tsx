@@ -1,5 +1,7 @@
 "use client"
 
+import layout from "./utility-layout.module.css"
+
 import { AppIcon } from "@/components/os/app-icon"
 
 import {
@@ -1811,7 +1813,7 @@ function JPConversation({
         </span>
       </div>
 
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+      <div className={`flex gap-7 ${layout.results}`}>
         <section
           className="min-w-0 flex-1 overflow-hidden rounded-xl"
           style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
@@ -2046,7 +2048,7 @@ function ProfileRail({
 
   return (
     <aside
-      className="w-full shrink-0 self-start overflow-hidden rounded-xl lg:sticky lg:top-0 lg:w-[286px]"
+      className={`shrink-0 self-start overflow-hidden rounded-xl ${layout.resultAside}`}
       style={{ background: "var(--os-card)", border: "1px solid var(--os-border)" }}
     >
       <div className="px-4 pb-4 pt-5">
@@ -2180,7 +2182,7 @@ function WebResults({
         Pages from other websites open in your own browser.
       </SourceNote>
 
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+      <div className={`flex gap-7 ${layout.results}`}>
         <div className="min-w-0 flex-1">
           {hits.s === "loading" && <Spinner label={`Searching Wikipedia for “${query}”…`} />}
 
@@ -2280,7 +2282,7 @@ function WebResults({
         </div>
 
         <aside
-          className="w-full shrink-0 self-start lg:sticky lg:top-0 lg:w-[300px]"
+          className={`shrink-0 self-start ${layout.resultAside}`}
           hidden={summary.s === "idle"}
         >
           {summary.s === "loading" && <Spinner label="Loading the summary card…" />}

@@ -5,7 +5,7 @@ import { search } from "./search"
 import type { AppId } from "./types"
 
 /** The phone home screen shows a short, curated set. Everything else lives in the drawer. */
-export const HOME_APPS: AppId[] = ["projects", "experience", "skills", "lab", "achievements", "resume", "clock", "settings", "blog", "mygpt"]
+export const HOME_APPS: AppId[] = ["projects", "experience", "blog", "mygpt", "skills", "resume", "achievements", "lab", "clock", "settings"]
 export const GAMES: AppId[] = ["minesweeper", "solitaire", "ridgeline"]
 /** Android's Phone, Messages, Chrome and Camera slots. */
 export const DOCK: AppId[] = ["about", "contact", "browser", "camera"]

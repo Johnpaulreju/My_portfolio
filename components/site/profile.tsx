@@ -1,7 +1,10 @@
+import Image from "next/image"
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { MEDIUM_PROFILE_URL } from "@/lib/os/blog"
 import { ACHIEVEMENTS, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
 import { PROFILE_AVAILABILITY, PROFILE_LEARNING, PROFILE_SUMMARY, profileLink } from "@/lib/site"
+import { projectPreviews, seoCaseStudy, seoCover } from "./work-media"
 import styles from "./site.module.css"
 
 export function SiteNavigation() {
@@ -9,6 +12,8 @@ export function SiteNavigation() {
     <nav aria-label="Portfolio pages" className={styles.nav}>
       <Link href="/">Portfolio OS</Link>
       <Link href="/about">About</Link>
+      <Link href="/about#selected-work">Projects</Link>
+      <Link href="/about#blog-heading">Blog</Link>
       <Link href="/resume">Resume</Link>
       <a href={`mailto:${PROFILE.email}`}>Contact</a>
     </nav>
@@ -45,6 +50,19 @@ export function ProfileIntro() {
       <p className={styles.role}>{PROFILE.headline}</p>
       <p>{PROFILE_SUMMARY}</p>
     </>
+  )
+}
+
+export function BlogCard() {
+  return (
+    <section id="blog-heading" tabIndex={-1} className={styles.writingCard} aria-labelledby="writing-title">
+      <Image src={seoCover} width={960} height={540} alt="" className={styles.writingCover} sizes="(max-width: 700px) 85vw, 360px" />
+      <div>
+        <h2 id="writing-title">Blog</h2>
+        <p>I write about how algorithms scale and what search data can tell us about changes to a storefront.</p>
+        <a className={styles.textAction} href={MEDIUM_PROFILE_URL}>Read my blog on Medium <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
   )
 }
 
@@ -116,15 +134,25 @@ export function ResumeProfile() {
 export function SelectedWork({ limit }: { limit?: number }) {
   const projects = SHOW_PROJECTS ? PROJECTS.slice(0, limit) : []
   return (
-    <section className={styles.section}>
-      <h2>{projects.length ? "Selected projects" : "Personal work"}</h2>
-      {projects.length ? projects.map((project) => (
-        <div className={styles.keepTogether} key={project.id}>
-          <h3>{project.url ? <a href={project.url}>{project.title}</a> : project.title}</h3>
-          <p>{project.desc}</p>
-          {project.stack && <p className={styles.muted}>{project.stack}</p>}
-        </div>
-      )) : [PORTFOLIO_STATUS.projects, PORTFOLIO_STATUS.lab].map((status) => (
+    <section id="selected-work" tabIndex={-1} className={styles.section} aria-labelledby="selected-work-title">
+      <h2 id="selected-work-title">{projects.length ? "Selected projects" : "Personal work"}</h2>
+      {projects.length ? <div className={limit ? styles.resumeProjects : styles.projectGrid}>
+        {projects.map((project) => {
+          const image = projectPreviews[project.id]
+          return (
+            <article className={`${styles.project} ${styles.keepTogether}`} key={project.id}>
+              {!limit && image && <Image className={styles.workPreview} src={image} alt="" width={900} height={580} sizes="(max-width: 700px) 92vw, 450px" />}
+              <div className={styles.projectBody}>
+                {!limit && <p className={styles.eyebrow}>{project.category}{project.year !== "—" && ` · ${project.year}`}</p>}
+                <h3>{project.url ? <a href={project.url}>{project.title}</a> : project.title}</h3>
+                <p>{project.desc}</p>
+                {project.stack && <p className={styles.muted}>{project.stack}</p>}
+                {project.id === "from-the-trunk" && seoCaseStudy && <a className={styles.textAction} href={seoCaseStudy.url}>Read the SEO case study <span aria-hidden="true">↗</span></a>}
+              </div>
+            </article>
+          )
+        })}
+      </div> : [PORTFOLIO_STATUS.projects, PORTFOLIO_STATUS.lab].map((status) => (
         <div key={status.title}><h3>{status.title}</h3><p>{status.body}</p></div>
       ))}
     </section>
@@ -165,6 +193,7 @@ export function ProfileFallback() {
         <div className={styles.content}>
           <ProfileIntro />
           <p>Power on the desktop to explore, or read the pages above.</p>
+          <BlogCard />
           <Skills />
           <Availability />
         </div>

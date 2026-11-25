@@ -93,9 +93,10 @@ export function StartMenu() {
     <div
       ref={ref}
       tabIndex={-1}
-      className="absolute left-1/2 z-[150] w-[640px] max-w-[calc(100vw-24px)] -translate-x-1/2 rounded-xl p-6 shadow-2xl"
+      className="absolute left-1/2 z-[150] flex w-[640px] max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col rounded-xl p-[clamp(0.75rem,3vh,1.5rem)] shadow-2xl"
       style={{
         bottom: TASKBAR_H + 8,
+        maxHeight: `calc(100dvh - ${TASKBAR_H + 16}px)`,
         background: "var(--os-menu)",
         border: "1px solid var(--os-border)",
         backdropFilter: "blur(40px) saturate(170%)",
@@ -106,7 +107,7 @@ export function StartMenu() {
       aria-label="Start menu"
     >
       <div
-        className="mb-5 flex items-center gap-2 rounded-md px-3 py-2"
+        className="mb-[clamp(0.5rem,2vh,1.25rem)] flex shrink-0 items-center gap-2 rounded-md px-3 py-2"
         style={{ background: "var(--os-input)", border: "1px solid var(--os-border)" }}
       >
         <Search size={15} style={{ color: "var(--os-muted)" }} />
@@ -120,114 +121,116 @@ export function StartMenu() {
         />
       </div>
 
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-[13px] font-semibold">{q ? "Apps" : "Pinned"}</span>
-        {!q && <span className="text-[12px]" style={{ color: "var(--os-muted)" }}>All apps</span>}
+      <div className="os-scroll min-h-0 overflow-y-auto overscroll-contain">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-[13px] font-semibold">{q ? "Apps" : "Pinned"}</span>
+          {!q && <span className="text-[12px]" style={{ color: "var(--os-muted)" }}>All apps</span>}
+        </div>
+
+        {apps.length === 0 && files.length === 0 ? (
+          <p className="py-10 text-center text-[13px]" style={{ color: "var(--os-muted)" }}>
+            No results for &ldquo;{query}&rdquo;
+          </p>
+        ) : (
+          <div className="grid grid-cols-6 gap-1">
+            {apps.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => open(a.id)}
+                className="flex flex-col items-center gap-2 rounded-md px-1 py-3 transition-colors hover:bg-[var(--os-hover)]"
+              >
+                <AppIcon appId={a.id} size={32} />
+                <span className="w-full truncate text-center text-[11.5px]">{a.short}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {q && extras.length > 0 && (
+          <>
+            <p className="mb-2 mt-5 text-[13px] font-semibold">From the portfolio</p>
+            <div className="flex flex-col">
+              {extras.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    if (r.kind === "action" && r.capability) {
+                      assistantInvoke(r.capability, r.capabilityArg ?? "")
+                    } else if (r.appId) {
+                      openApp(r.appId)
+                    } else if (r.nodeId) {
+                      openNode(r.nodeId)
+                    }
+                    setStartOpen(false)
+                  }}
+                  className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
+                >
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+                    style={{ background: "var(--os-accent-soft)", color: "var(--os-accent-fg)" }}
+                  >
+                    {r.kind}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px]">{r.title}</span>
+                    <span className="block truncate text-[11px]" style={{ color: "var(--os-muted)" }}>
+                      {r.subtitle}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {q && files.length > 0 && (
+          <>
+            <p className="mb-2 mt-5 text-[13px] font-semibold">Files</p>
+            <div className="flex flex-col">
+              {files.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => openNode(f.id)}
+                  className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
+                >
+                  <span className="text-[13px]">{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
+                  <span className="flex-1 truncate text-[13px]">{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!q && recent.length > 0 && (
+          <>
+            <p className="mb-2 mt-6 text-[13px] font-semibold">Recommended</p>
+            <div className="grid grid-cols-2 gap-1">
+              {recent.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => openNode(f.id)}
+                  className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
+                >
+                  <span>{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px]">{f.name}</span>
+                    <span className="block text-[11px]" style={{ color: "var(--os-muted)" }}>
+                      {isAppShortcut(f) ? "App shortcut" : f.kind === "folder" ? "Folder" : "Text document"}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {apps.length === 0 && files.length === 0 ? (
-        <p className="py-10 text-center text-[13px]" style={{ color: "var(--os-muted)" }}>
-          No results for &ldquo;{query}&rdquo;
-        </p>
-      ) : (
-        <div className="grid grid-cols-6 gap-1">
-          {apps.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => open(a.id)}
-              className="flex flex-col items-center gap-2 rounded-md px-1 py-3 transition-colors hover:bg-[var(--os-hover)]"
-            >
-              <AppIcon appId={a.id} size={32} />
-              <span className="w-full truncate text-center text-[11.5px]">{a.short}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {q && extras.length > 0 && (
-        <>
-          <p className="mb-2 mt-5 text-[13px] font-semibold">From the portfolio</p>
-          <div className="flex flex-col">
-            {extras.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  if (r.kind === "action" && r.capability) {
-                    assistantInvoke(r.capability, r.capabilityArg ?? "")
-                  } else if (r.appId) {
-                    openApp(r.appId)
-                  } else if (r.nodeId) {
-                    openNode(r.nodeId)
-                  }
-                  setStartOpen(false)
-                }}
-                className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
-              >
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
-                  style={{ background: "var(--os-accent-soft)", color: "var(--os-accent-fg)" }}
-                >
-                  {r.kind}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px]">{r.title}</span>
-                  <span className="block truncate text-[11px]" style={{ color: "var(--os-muted)" }}>
-                    {r.subtitle}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {q && files.length > 0 && (
-        <>
-          <p className="mb-2 mt-5 text-[13px] font-semibold">Files</p>
-          <div className="flex flex-col">
-            {files.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => openNode(f.id)}
-                className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
-              >
-                <span className="text-[13px]">{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
-                <span className="flex-1 truncate text-[13px]">{f.name}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {!q && recent.length > 0 && (
-        <>
-          <p className="mb-2 mt-6 text-[13px] font-semibold">Recommended</p>
-          <div className="grid grid-cols-2 gap-1">
-            {recent.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => openNode(f.id)}
-                className="flex items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-[var(--os-hover)]"
-              >
-                <span>{isAppShortcut(f) ? <AppIcon appId={f.appId} size={18} /> : f.kind === "folder" ? "📁" : "📄"}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px]">{f.name}</span>
-                  <span className="block text-[11px]" style={{ color: "var(--os-muted)" }}>
-                    {isAppShortcut(f) ? "App shortcut" : f.kind === "folder" ? "Folder" : "Text document"}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       <div
-        className="mt-6 flex items-center justify-between border-t pt-4"
+        className="mt-[clamp(0.45rem,2vh,1.5rem)] flex shrink-0 items-center justify-between border-t pt-[clamp(0.4rem,1.5vh,1rem)]"
         style={{ borderColor: "var(--os-border)" }}
       >
         <button

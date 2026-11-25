@@ -1,5 +1,7 @@
 "use client"
 
+import layout from "./utility-layout.module.css"
+
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   AppWindow, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronRight, Clock3, Copy, Cpu,
@@ -308,9 +310,9 @@ function Listing({
           style={{ borderColor: "var(--os-border)", color: "var(--os-muted)" }}
         >
           <span className="min-w-0 flex-1">Name</span>
-          <span className="hidden w-[132px] shrink-0 lg:block">Date modified</span>
-          <span className="hidden w-[150px] shrink-0 md:block">Type</span>
-          <span className="hidden w-[86px] shrink-0 text-right sm:block">Size</span>
+          <span className={`w-[132px] shrink-0 ${layout.fileDate}`}>Date modified</span>
+          <span className={`w-[150px] shrink-0 ${layout.fileType}`}>Type</span>
+          <span className={`w-[86px] shrink-0 text-right ${layout.fileSize}`}>Size</span>
         </div>
         {items.map((it) => (
           <button
@@ -344,19 +346,19 @@ function Listing({
               </span>
             </span>
             <span
-              className="hidden w-[132px] shrink-0 truncate text-[11.5px] tabular-nums lg:block"
+              className={`w-[132px] shrink-0 truncate text-[11.5px] tabular-nums ${layout.fileDate}`}
               style={{ color: "var(--os-muted)" }}
             >
               {it.modified ? fmtDateTime(it.modified) : "—"}
             </span>
             <span
-              className="hidden w-[150px] shrink-0 truncate text-[11.5px] md:block"
+              className={`w-[150px] shrink-0 truncate text-[11.5px] ${layout.fileType}`}
               style={{ color: "var(--os-muted)" }}
             >
               {it.type}
             </span>
             <span
-              className="hidden w-[86px] shrink-0 truncate text-right text-[11.5px] tabular-nums sm:block"
+              className={`w-[86px] shrink-0 truncate text-right text-[11.5px] tabular-nums ${layout.fileSize}`}
               style={{ color: "var(--os-muted)" }}
             >
               {it.size ?? ""}
@@ -1030,7 +1032,7 @@ export function ComputerApp({ win }: { win: WindowInstance }) {
       <div className="flex min-h-0 flex-1">
         {/* Navigation pane */}
         <aside
-          className="os-scroll hidden w-[196px] shrink-0 overflow-y-auto border-r p-2 sm:block"
+          className={`os-scroll w-[196px] shrink-0 overflow-y-auto border-r p-2 ${layout.computerSidebar}`}
           style={{ borderColor: "var(--os-border)", background: "var(--os-card)" }}
         >
           {nav(House, "Home", { view: "home" })}

@@ -5,30 +5,35 @@ import { Github, Linkedin } from "../social-icons"
 import { PROFILE, SHOW_PROJECTS } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
 import { Button, Card, Page, Row } from "./kit"
+import styles from "./about.module.css"
 
 export function AboutApp() {
   const open = useWM((s) => s.open)
 
   return (
     <Page>
-      <div className="mb-7 flex items-center gap-5">
-        <span className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-blue-700 text-[26px] font-semibold text-white shadow-lg">
+      <header className={styles.identity}>
+        <span aria-hidden className={styles.monogram}>
           {PROFILE.initials}
         </span>
         <div className="min-w-0">
-          <h1 className="truncate text-[24px] font-semibold tracking-tight" style={{ color: "var(--os-fg)" }}>
+          <h1 className={styles.name}>
             {PROFILE.name}
           </h1>
-          <p className="text-[14px]" style={{ color: "var(--os-accent-fg)" }}>
+          <p className={styles.role}>
             {PROFILE.title}
           </p>
-          <p className="text-[13px] font-medium" style={{ color: "var(--os-fg)" }}>
+          <p className="text-[13px] font-medium">
             {PROFILE.next}
           </p>
-          <p className="mt-1 text-[13px]" style={{ color: "var(--os-muted)" }}>
-            {PROFILE.tagline}
-          </p>
         </div>
+      </header>
+
+      <p className={styles.tagline}>{PROFILE.tagline}</p>
+      <div className="mb-7 flex flex-wrap gap-2">
+        {SHOW_PROJECTS && <Button variant="accent" onClick={() => open("projects")}>Browse projects</Button>}
+        <Button onClick={() => open("resume")}>View resume</Button>
+        <Button onClick={() => open("contact")}>Get in touch</Button>
       </div>
 
       <Card className="mb-7 p-4">
@@ -72,13 +77,6 @@ export function AboutApp() {
         <Row icon={<Linkedin size={15} />} label="LinkedIn" value={PROFILE.linkedin} />
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="accent" onClick={() => open("contact")}>
-          Get in touch
-        </Button>
-        <Button onClick={() => open("resume")}>View resume</Button>
-        {SHOW_PROJECTS && <Button onClick={() => open("projects")}>Browse projects</Button>}
-      </div>
     </Page>
   )
 }

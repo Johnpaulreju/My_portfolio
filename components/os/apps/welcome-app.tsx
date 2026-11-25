@@ -6,15 +6,15 @@ import { Github, Linkedin } from "../social-icons"
 import { PROFILE } from "@/lib/os/content"
 import { useWM } from "@/lib/os/wm-store"
 import type { WindowInstance } from "@/lib/os/types"
+import styles from "./welcome.module.css"
 
 export function WelcomeApp({ win }: { win: WindowInstance }) {
   const close = useWM((state) => state.close)
 
   return (
-    <div className="flex h-full min-h-0">
-      {/* Left pane - the current initials artwork. */}
+    <div className={styles.welcome}>
       <div
-        className="relative hidden w-[42%] shrink-0 overflow-hidden sm:block"
+        className={styles.artwork}
         style={{ background: "linear-gradient(150deg, #1b3b6f, #0a1230)" }}
       >
         <InitialsArtwork />
@@ -27,21 +27,19 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
         <p className="absolute bottom-4 left-5 text-[12px] font-medium text-white/90">{PROFILE.location}</p>
       </div>
 
-      {/* Right pane - the words. */}
-      <div className="flex min-w-0 flex-1 flex-col justify-between p-8">
-        <div>
+      <div className={styles.panel}>
+        <div className={`os-scroll ${styles.intro}`}>
           <p className="mb-2 text-[12.5px] font-medium tracking-wide" style={{ color: "var(--os-accent-fg)" }}>
             Welcome to JP&rsquo;s Windows
           </p>
           <h1
-            className="mb-4 text-[30px] font-light leading-[1.18] tracking-tight"
+            className="mb-3 text-[28px] font-light leading-[1.18] tracking-tight"
             style={{ color: "var(--os-fg)" }}
           >
             {PROFILE.tagline}
           </h1>
-          <p className="mb-6 max-w-[42ch] text-[13.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
-            I&rsquo;m {PROFILE.name}. Explore my work on clinical software, client projects and
-            independent experiments, or open my resume for my experience and education.
+          <p className="mb-4 max-w-[44ch] text-[13.5px] leading-relaxed" style={{ color: "var(--os-muted)" }}>
+            I&rsquo;m {PROFILE.name}. Explore my projects, or open my resume for my experience and education.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -51,29 +49,28 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-6">
-          <button
-            type="button"
-            onClick={() => close(win.id)}
-            className="rounded-md px-4 py-[7px] text-[13px] transition-colors hover:bg-[var(--os-hover)]"
-            style={{ color: "var(--os-fg)", border: "1px solid var(--os-border)" }}
+        <div className={styles.actions}>
+          <Link
+            href="/about"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-transform active:scale-[.98]"
+            style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
           >
-            Just let me look around
-          </button>
+            Start here <ArrowRight size={14} aria-hidden />
+          </Link>
           <Link
             href="/resume"
-            className="rounded-md px-4 py-[7px] text-[13px] transition-colors hover:bg-[var(--os-hover)]"
+            className="inline-flex items-center justify-center rounded-md px-3 text-[13px] transition-colors hover:bg-[var(--os-hover)]"
             style={{ color: "var(--os-fg)", border: "1px solid var(--os-border)" }}
           >
             View resume
           </Link>
-          <Link
-            href="/about"
-            className="flex items-center gap-1.5 rounded-md px-4 py-[7px] text-[13px] font-medium transition-transform active:scale-[.98]"
-            style={{ background: "var(--os-accent)", color: "var(--os-on-accent)" }}
+          <button
+            type="button"
+            onClick={() => close(win.id)}
+            className="rounded-md px-2 text-[13px] text-[var(--os-fg)] transition-colors hover:bg-[var(--os-hover)]"
           >
-            Start here <ArrowRight size={14} />
-          </Link>
+            Look around
+          </button>
         </div>
       </div>
     </div>

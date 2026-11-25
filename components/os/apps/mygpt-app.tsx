@@ -201,7 +201,7 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
             <span className={styles.avatar}>{PROFILE.initials}</span><span>{PROFILE.name}<small>Portfolio profile</small></span>
           </button>
         </aside>
-        <main className={styles.main} inert={drawerVisible || !!deleting}>
+        <main className={styles.main} data-empty={empty} inert={drawerVisible || !!deleting}>
           <header className={styles.bar}>
             <button ref={opener} className={styles.opener} type="button" aria-label="Open sidebar" title="Open sidebar" onClick={() => { setCollapsed(false); setMobileDrawer(compact); requestAnimationFrame(() => frame.current?.querySelector<HTMLButtonElement>('button[aria-label="Close sidebar"]')?.focus()) }}><PanelLeft size={19} /></button>
             <span>MyGPT</span>
@@ -215,11 +215,18 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
               {chat?.messages.map((m, i) => <Reply key={m.id} message={m} retry={m.role === "assistant" && !busy && i === chat.messages.length - 1 ? () => { void answer(state.retry(chat.id, m.id)) } : undefined} />)}
             </div>
           </div>}
-          <div className={empty ? styles.empty : styles.dock}>
-            {empty && <h1>What would you like to know?</h1>}
+          {empty && <div className={styles.empty}>
+            <div className={styles.intro}>
+              <h1>Ask about Johnpaul</h1>
+              <div className={styles.starters}>
+                {starters.map(({ label, question, Icon }) => <button key={label} disabled={!chat} onClick={() => send(question)}><Icon size={15} />{label}</button>)}
+              </div>
+            </div>
+          </div>}
+          <div className={styles.dock}>
             <div className={styles.composerWrap}>
               <form className={styles.composer} onSubmit={(e) => { e.preventDefault(); send() }}>
-                <textarea ref={input} aria-label="Message MyGPT" placeholder="Ask about Johnpaul" rows={1} maxLength={1000} disabled={!chat} value={draft} onChange={(e) => { if (chat) state.setDraft(chat.id, e.target.value) }} onKeyDown={(e) => {
+                <textarea ref={input} aria-label="Message MyGPT" placeholder="Ask about a project, a role or a skill…" rows={1} maxLength={1000} disabled={!chat} value={draft} onChange={(e) => { if (chat) state.setDraft(chat.id, e.target.value) }} onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) { e.preventDefault(); send() }
                 }} />
                 <div className={styles.toolbar}>
@@ -237,10 +244,8 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
                 </div>
               </form>
             </div>
-            {empty && <div className={styles.starters}>
-              {starters.map(({ label, question, Icon }) => <button key={label} disabled={!chat} onClick={() => send(question)}><Icon size={15} />{label}</button>)}
-            </div>}
           </div>
+          {empty && <div className={styles.belowComposer} aria-hidden />}
           <p className={styles.disclosure}>Chats stay in this browser. Questions may be sent to Google Gemini.</p>
         </main>
         {deleting && <div className={styles.modalShade}>

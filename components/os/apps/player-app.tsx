@@ -1,5 +1,7 @@
 "use client"
 
+import layout from "./utility-layout.module.css"
+
 import { AppIcon } from "@/components/os/app-icon"
 
 import {
@@ -447,13 +449,13 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={closeMenus}
-      className="flex h-full min-h-0 flex-col outline-none"
+      className={`flex h-full min-h-0 flex-col outline-none ${layout.player}`}
       style={{ background: "var(--os-window)", color: "var(--os-fg)" }}
       aria-label="Prism Player"
     >
       {/* ------------------------------------------------------------ menu bar */}
       <div
-        className="flex shrink-0 items-center gap-0.5 border-b px-1.5 py-1 text-[12px] os-no-select"
+        className={`relative flex shrink-0 items-center gap-0.5 border-b px-1.5 py-1 text-[12px] os-no-select ${layout.playerMenus}`}
         style={{ borderColor: "var(--os-border)", background: "var(--os-chrome)" }}
         role="menubar"
       >
@@ -662,7 +664,7 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
 
         {info && (
           <div
-            className="absolute right-3 top-3 w-[248px] rounded-lg p-3 text-[11.5px] shadow-2xl"
+            className="os-scroll absolute bottom-auto right-2 top-2 max-h-[calc(100%-1rem)] w-[248px] max-w-[calc(100%-1rem)] overflow-y-auto rounded-lg p-3 text-[11.5px] shadow-2xl"
             style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(28px)" }}
           >
             <div className="mb-2 flex items-center justify-between">
@@ -682,9 +684,9 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
         )}
 
         {picker && (
-          <div className="absolute inset-0 grid place-items-center p-6" style={{ background: "var(--os-scrim)" }}>
+          <div className="absolute inset-0 z-10 grid min-h-0 place-items-center p-2" style={{ background: "var(--os-scrim)" }}>
             <div
-              className="w-full max-w-[380px] rounded-xl p-3 shadow-2xl"
+              className="flex max-h-full min-h-0 w-full max-w-[380px] flex-col rounded-xl p-3 shadow-2xl"
               style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(28px)" }}
             >
               <div className="mb-2 flex items-center justify-between px-1">
@@ -693,7 +695,7 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
                   <X size={14} style={{ color: "var(--os-muted)" }} />
                 </button>
               </div>
-              <div className="os-scroll max-h-[220px] overflow-y-auto">
+              <div className="os-scroll min-h-0 max-h-[220px] overflow-y-auto">
                 {playlist.map((p) => (
                   <button
                     key={p.id}
@@ -777,7 +779,7 @@ export function PlayerApp({ win }: { win: WindowInstance }) {
 
       {/* ------------------------------------------------------------ transport */}
       <div
-        className="flex shrink-0 items-center gap-1 px-3 pb-2 pt-1"
+        className={`os-scroll flex shrink-0 items-center gap-1 px-3 pb-2 pt-1 ${layout.transport}`}
         style={{ background: "var(--os-chrome)" }}
       >
         <TransportButton label={playing ? "Pause" : "Play"} onClick={togglePlay} disabled={!item.src} primary>
@@ -949,9 +951,10 @@ function MenuButton({
           e.stopPropagation()
           setMenu(open ? null : name)
         }}
+        onClick={(e) => { if (e.detail === 0) setMenu(open ? null : name) }}
         // Once one menu is open, sliding across the bar swaps menus, as it should.
-        onPointerEnter={() => {
-          if (menu && !open) setMenu(name)
+        onPointerEnter={(e) => {
+          if (e.pointerType === "mouse" && menu && !open) setMenu(name)
         }}
         className={`rounded px-2.5 py-1 transition-colors ${open ? "bg-[var(--os-active)]" : "hover:bg-[var(--os-hover)]"}`}
       >
@@ -961,7 +964,7 @@ function MenuButton({
         <div
           role="menu"
           aria-label={label}
-          className="absolute left-0 top-full z-50 mt-1 min-w-[208px] rounded-lg p-1.5 shadow-2xl"
+          className={`os-scroll absolute left-0 top-full z-50 mt-1 min-w-[208px] rounded-lg p-1.5 shadow-2xl ${layout.playerMenu}`}
           style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(28px)" }}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setMenu(null)}
@@ -1021,15 +1024,15 @@ function SubMenu({ label, icon, children }: { label: string; icon?: ReactNode; c
   return (
     <div
       className="relative"
-      onPointerEnter={() => setOpen(true)}
-      onPointerLeave={() => setOpen(false)}
+      onPointerEnter={(e) => { if (e.pointerType === "mouse") setOpen(true) }}
+      onPointerLeave={(e) => { if (e.pointerType === "mouse") setOpen(false) }}
     >
       <div
         role="menuitem"
         aria-haspopup="menu"
         aria-expanded={open}
         tabIndex={0}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") {
             e.preventDefault()
@@ -1049,7 +1052,7 @@ function SubMenu({ label, icon, children }: { label: string; icon?: ReactNode; c
         <div
           role="menu"
           aria-label={label}
-          className="absolute left-full top-0 z-50 ml-1 min-w-[152px] rounded-lg p-1.5 shadow-2xl"
+          className={`absolute left-full top-0 z-50 ml-1 min-w-[152px] rounded-lg p-1.5 shadow-2xl ${layout.submenu}`}
           style={{ background: "var(--os-menu)", border: "1px solid var(--os-border)", backdropFilter: "blur(28px)" }}
         >
           {children}

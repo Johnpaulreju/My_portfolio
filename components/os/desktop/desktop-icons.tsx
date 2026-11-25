@@ -108,6 +108,11 @@ export function DesktopIcons({
                 e.stopPropagation()
                 setSelected(entry.key)
               }}
+              title={isRenaming ? undefined : `Double-click to open ${entry.label}`}
+              onClick={(e) => {
+                // Keyboard and assistive technology activate buttons with a zero-detail click.
+                if (e.detail === 0 && !isRenaming) openEntry(entry)
+              }}
               onDoubleClick={() => openEntry(entry)}
               onContextMenu={(e) => {
                 e.preventDefault()

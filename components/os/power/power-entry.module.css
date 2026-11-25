@@ -1,0 +1,185 @@
+.screen {
+  --gutter: clamp(1.25rem, 6.5vw, 7rem);
+  color: #f5f8ff;
+  background: #08142b;
+}
+
+.overlay {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  overflow: auto;
+}
+
+.canvas {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: max(1.5rem, env(safe-area-inset-top)) var(--gutter) max(1.5rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+.wallpaper {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 74% 36%, #245eb4, #112647 65%, #08142b);
+}
+
+.wallpaper > div {
+  left: 19%;
+  right: -18%;
+}
+
+.wallpaper::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: radial-gradient(ellipse at 77% 48%, #288cfa33, transparent 45%),
+    linear-gradient(90deg, #081228 2%, #0b1933eb 26%, #10244b22 66%),
+    linear-gradient(0deg, #081327b8, transparent 35%);
+}
+
+.masthead, .hero, .footer {
+  width: 100%;
+  max-width: 78rem;
+  margin-inline: auto;
+}
+
+.masthead, .wordmark, .location, .power, .fullscreen, .footer a {
+  display: flex;
+  align-items: center;
+}
+
+.masthead { justify-content: space-between; gap: 1rem; }
+.wordmark { gap: .7rem; font-size: .94rem; font-weight: 600; letter-spacing: -.015em; }
+.location { gap: .4rem; color: #c2d5ed; font-size: .8rem; }
+
+.hero {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17.5rem, .8fr);
+  align-content: center;
+  align-items: center;
+  gap: clamp(2rem, 7vw, 7rem);
+  padding-block: clamp(3rem, 9vh, 7rem);
+}
+
+.identity h1 {
+  max-width: 12ch;
+  font-size: clamp(3.9rem, 7vw, 7.4rem);
+  font-weight: 600;
+  letter-spacing: -.055em;
+  line-height: .99;
+  text-wrap: balance;
+}
+
+.role {
+  margin-top: 1.3rem;
+  color: #a6d9ff;
+  font-size: clamp(1.3rem, 2.2vw, 2.1rem);
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+
+.summary { max-width: 34ch; margin-top: .65rem; color: #d1dff1; font-size: clamp(.98rem, 1.25vw, 1.15rem); line-height: 1.55; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem 1.1rem; margin-top: 1.65rem; }
+
+.power {
+  justify-content: center;
+  gap: .65rem;
+  min-height: 3rem;
+  padding: .65rem 1.12rem;
+  border: 1px solid #e2f4ff;
+  border-radius: .65rem;
+  background: #d9efff;
+  box-shadow: 0 4px 18px #03132740;
+  color: #0b2848;
+  font-size: .94rem;
+  font-weight: 650;
+}
+
+.power:hover { background: #fff; }
+.fullscreen { min-height: 2.75rem; gap: .5rem; color: #cbdaec; cursor: pointer; font-size: .8rem; }
+.fullscreen input { width: .95rem; height: .95rem; accent-color: #a6d9ff; }
+
+.shortcuts {
+  position: relative;
+  width: 100%;
+  max-width: 24.5rem;
+  justify-self: end;
+  padding: .9rem;
+  border: 1px solid #b6d9ff56;
+  border-radius: 1.15rem;
+  background: linear-gradient(135deg, #769dcc3b, #162c4999 70%), #112d506e;
+  box-shadow: inset 0 1px 0 #fff2, 0 2rem 5rem #04102566;
+  backdrop-filter: blur(18px);
+}
+
+.shortcuts h2 { margin: .32rem .62rem .76rem; color: #deebfa; font-size: .83rem; font-weight: 600; }
+.links { display: grid; gap: .3rem; }
+.link { display: flex; align-items: center; gap: .92rem; min-height: 4.65rem; padding: .6rem .8rem; border-radius: .63rem; background: #d7eaff10; color: #fff; text-decoration: none; }
+.link:hover { background: #d7eaff26; }
+.linkText { flex: 1; min-width: 0; }
+.linkText strong, .linkText small { display: block; }
+.linkText strong { font-size: 1.01rem; font-weight: 600; }
+.linkText small { margin-top: .1rem; color: #d0e0f2; font-size: .78rem; line-height: 1.4; }
+.arrow { flex: none; color: #d3e4f6; }
+.footer a { gap: .5rem; width: fit-content; min-height: 2.75rem; color: #d5e4f6; font-size: .86rem; }
+.footer a:hover { color: #fff; text-decoration: underline; }
+.screen :is(a, button, input):focus-visible { outline: 2px solid #bdeaff; outline-offset: 4px; }
+
+@media (max-width: 45rem) {
+  .canvas { padding-top: max(1.15rem, env(safe-area-inset-top)); padding-bottom: max(.6rem, env(safe-area-inset-bottom)); }
+  .wallpaper > div { left: -5%; right: -48%; }
+  .wallpaper::after { background: linear-gradient(120deg, #081228ef, #0a1d3daa 46%, #1127473b), linear-gradient(0deg, #071327b3, transparent 60%); }
+  .location { font-size: .7rem; }
+  .hero { grid-template-columns: 1fr; gap: clamp(1.25rem, 4.5svh, 2.5rem); padding-block: clamp(1.4rem, 6svh, 3.2rem); }
+  .identity h1 { font-size: clamp(2.85rem, 12.5vw, 5.2rem); }
+  .role { margin-top: .8rem; }
+  .summary { margin-top: .48rem; }
+  .controls { margin-top: 1rem; }
+  .shortcuts { max-width: none; padding: .65rem; }
+  .shortcuts h2 { margin: .13rem .3rem .5rem; }
+  .links { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .link { min-height: 4.65rem; flex-direction: column; justify-content: center; gap: .25rem; padding: .35rem; text-align: center; }
+  .linkText { flex: none; }
+  .linkText strong { font-size: .83rem; }
+  .linkText small, .arrow { display: none; }
+}
+
+@media (max-width: 22rem) {
+  .screen { --gutter: 1rem; }
+  .location { max-width: 9rem; text-align: right; }
+  .controls { gap: .2rem .65rem; }
+  .power { padding-inline: .8rem; }
+}
+
+@media (min-width: 45.01rem) and (max-height: 30rem) {
+  .canvas { padding-block: .75rem; }
+  .hero { gap: 2rem; padding-block: .8rem; }
+  .identity h1 { font-size: clamp(2.5rem, 5.2vw, 4.25rem); }
+  .role { margin-top: .45rem; font-size: 1.2rem; }
+  .summary { margin-top: .3rem; font-size: .9rem; }
+  .controls { margin-top: .6rem; }
+  .power { min-height: 2.75rem; }
+  .shortcuts { padding: .5rem; }
+  .shortcuts h2 { margin: .1rem .45rem .4rem; }
+  .link { min-height: 3rem; padding: .3rem .55rem; }
+  .linkText small { display: none; }
+}
+
+
+@media (max-width: 45rem) and (max-height: 36rem) {
+  .canvas { padding-block: .6rem; }
+  .hero { gap: 1rem; padding-block: 1rem; }
+  .identity h1 { max-width: none; font-size: clamp(2.3rem, 10.4vw, 3.8rem); }
+  .role { margin-top: .35rem; font-size: 1.15rem; }
+  .summary { margin-top: .3rem; font-size: .92rem; }
+  .controls { margin-top: .6rem; }
+  .fullscreen { min-height: 2.5rem; }
+}

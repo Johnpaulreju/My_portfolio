@@ -1,13 +1,14 @@
 "use client"
 
+import Image from "next/image"
 import { useEffect, useState } from "react"
 import { ArrowUpRight } from "lucide-react"
 import { MEDIUM_PROFILE_URL, PUBLISHED_ARTICLES, type Article } from "@/lib/os/blog"
 import { PROFILE } from "@/lib/os/content"
-import { Card, Page, PageTitle } from "./kit"
+import { seoCaseStudy, seoCover } from "@/components/site/work-media"
+import styles from "./portfolio-collection.module.css"
 
 const profiles = [
-  { label: "Medium", url: MEDIUM_PROFILE_URL },
   { label: "LinkedIn", url: `https://${PROFILE.linkedin}` },
   { label: "GitHub", url: `https://${PROFILE.github}` },
 ]
@@ -33,29 +34,36 @@ export function BlogApp() {
   }, [])
 
   return (
-    <Page>
-      <PageTitle title="Blog" sub="My writing on Medium" />
-      <Card>
-        <ul className="divide-y divide-[var(--os-border)]">
-          {articles.map((story) => (
-            <li key={story.url}>
-              <a href={story.url} target="_blank" rel="noreferrer" className="block rounded-lg p-4 hover:bg-[var(--os-hover)]">
-                {story.date && <time dateTime={story.date} className="text-xs text-[var(--os-muted)]">{dateFormat.format(new Date(story.date))}</time>}
-                <h2 className="mt-1 text-[15px] font-semibold text-[var(--os-fg)]">{story.title} <ArrowUpRight size={14} className="inline" aria-hidden /></h2>
-                {story.description && <p className="mt-2 text-[13px] leading-relaxed text-[var(--os-muted)]">{story.description}</p>}
+    <main className={`os-scroll ${styles.viewport}`} aria-label="Blog">
+      <div className={styles.sheet}>
+        <header className={styles.titleRow}>
+          <h1 className={styles.title}>Blog</h1>
+          <a href={MEDIUM_PROFILE_URL} target="_blank" rel="noreferrer" className={styles.profileLink}>
+            Read my blog on Medium <ArrowUpRight size={16} aria-hidden />
+          </a>
+        </header>
+        {articles.map((story) => {
+          const hasCover = story.url === seoCaseStudy?.url
+          return (
+            <article key={story.url} className={`${styles.story} ${hasCover ? styles.leadStory : ""}`}>
+              <a href={story.url} target="_blank" rel="noreferrer" className={styles.storyInner}>
+                {hasCover && <Image className={styles.storyCover} src={seoCover} width={960} height={540} alt="" />}
+                <div className={styles.storyBody}>
+                  {story.date && <time className={styles.date} dateTime={story.date}>{dateFormat.format(new Date(story.date))}</time>}
+                  <h2>{story.title}</h2>
+                  {story.description && <p className={styles.body}>{story.description}</p>}
+                  <span className={styles.storyLink}>Read article <ArrowUpRight size={15} aria-hidden /></span>
+                </div>
               </a>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-[var(--os-fg)]">Social profiles</h2>
-      <Card>
-        <ul className="flex flex-wrap gap-x-5 gap-y-2 px-4 py-3">
+            </article>
+          )
+        })}
+        <nav className={styles.socials} aria-label="Social profiles">
           {profiles.map(({ label, url }) => (
-            <li key={label}><a href={url} target="_blank" rel="noreferrer" className="text-sm text-[var(--os-accent-fg)] hover:underline">{label} <ArrowUpRight size={13} className="inline" aria-hidden /></a></li>
+            <a className={styles.profileLink} key={label} href={url} target="_blank" rel="noreferrer">{label} <ArrowUpRight size={14} aria-hidden /></a>
           ))}
-        </ul>
-      </Card>
-    </Page>
+        </nav>
+      </div>
+    </main>
   )
 }

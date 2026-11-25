@@ -1,9 +1,11 @@
 "use client"
 
+import { FileContextMenu, localPoint } from "./file-context-menu"
+
 import { isAppShortcut } from "@/lib/os/actions"
 import { AppIcon } from "@/components/os/app-icon"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
   ChevronUp,
@@ -131,6 +133,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<number | null>(null)
   const [sort, setSort] = useState<Sort>({ key: "deleted", dir: -1 })
+  const surface = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const [confirm, setConfirm] = useState<null | { mode: "empty" | "purge"; ids: string[] }>(null)
 
@@ -310,7 +313,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
   const GRID = "minmax(190px, 2.1fr) minmax(150px, 1.7fr) 170px 96px 140px"
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col" style={{ color: "var(--os-fg)" }}>
+    <div ref={surface} className="relative flex h-full min-h-0 flex-col" style={{ color: "var(--os-fg)" }}>
       {/* Command bar */}
       <div
         className="os-scroll flex shrink-0 items-center gap-1 overflow-x-auto border-b px-2 py-1.5"
@@ -440,7 +443,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
                       setSelected(new Set([n.id]))
                       setAnchor(i)
                     }
-                    setMenu({ x: e.clientX, y: e.clientY, id: n.id })
+                    setMenu({ ...localPoint(e, surface.current), id: n.id })
                   }}
                 >
                   <Cell>
@@ -481,19 +484,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
 
       {/* Row context menu */}
       {menu && (
-        <div
-          className="fixed z-[300] min-w-[198px] rounded-lg p-1.5 text-[13px] shadow-2xl"
-          style={{
-            left: Math.max(8, Math.min(menu.x, window.innerWidth - 210)),
-            top: Math.max(8, Math.min(menu.y, window.innerHeight - 142)),
-            background: "var(--os-menu)",
-            border: "1px solid var(--os-border)",
-            backdropFilter: "blur(28px)",
-            color: "var(--os-fg)",
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.preventDefault()}
-        >
+        <FileContextMenu x={menu.x} y={menu.y}>
           <MenuRow
             icon={<Undo2 size={13} />}
             label="Restore"
@@ -511,7 +502,7 @@ export function RecycleBinApp(_props: { win?: WindowInstance }) {
           />
           <div className="my-1 h-px" style={{ background: "var(--os-border)" }} />
           <MenuRow icon={<Info size={13} />} label="Properties" disabled onSelect={() => {}} />
-        </div>
+        </FileContextMenu>
       )}
 
       {/* In-app confirmation - a real dialog would break the illusion */}

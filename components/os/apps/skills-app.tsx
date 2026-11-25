@@ -1,41 +1,34 @@
 "use client"
 
 import { SKILL_GROUPS } from "@/lib/os/content"
-import { Card, Page, PageTitle, Pill } from "./kit"
+import { Card, Page, PageTitle } from "./kit"
 
 export function SkillsApp() {
   return (
     <Page>
       <PageTitle title="Skills" sub="Tools I build with and areas I'm studying." />
-
-      <div className="space-y-5">
+      <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
         {SKILL_GROUPS.map((group) => (
-          <section key={group.label}>
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h2 className="text-[14px] font-semibold" style={{ color: "var(--os-fg)" }}>
-                {group.label}
-              </h2>
-              <span className="text-[12px]" style={{ color: "var(--os-muted)" }}>
-                {group.hint}
-              </span>
-            </div>
-            <Card>
-              <ul>
-                {group.items.map((skill) => (
-                  <li
-                    key={skill.name}
-                    className="flex items-center justify-between gap-3 px-4 py-3 [&:not(:last-child)]:border-b"
-                    style={{ borderColor: "var(--os-border)" }}
-                  >
-                    <span className="text-[13px]" style={{ color: "var(--os-fg)" }}>
-                      {skill.name}
-                    </span>
-                    <Pill tone={skill.status === "Building" ? "accent" : "default"}>{skill.status}</Pill>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
+          <Card key={group.label} className="p-5">
+            <h2 className="text-base font-semibold tracking-tight">{group.label}</h2>
+            <p className="mb-4 mt-1 text-sm text-[var(--os-muted)]">{group.hint}</p>
+            {(["Building", "Studying"] as const).map((status) => {
+              const items = group.items.filter((skill) => skill.status === status)
+              if (!items.length) return null
+              return (
+                <section key={status} className="mt-3">
+                  <h3 className="mb-2 text-xs font-medium text-[var(--os-accent-fg)]">{status}</h3>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {items.map((skill) => (
+                      <li key={skill.name} className="rounded-md bg-[var(--os-input)] px-2 py-1 text-[13px]">
+                        {skill.name}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )
+            })}
+          </Card>
         ))}
       </div>
     </Page>

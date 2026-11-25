@@ -1,0 +1,73 @@
+/* These breakpoints follow a resizable app window, including on wide monitors. */
+.mail { flex-direction: column; }
+.contacts {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  overflow-x: auto;
+  border-bottom-width: 1px;
+  white-space: nowrap;
+}
+.contacts > * { flex-shrink: 0; }
+.contacts > div:first-child { display: none; }
+.contacts > p { margin-top: 0; }
+
+.results { flex-direction: column; }
+.resultAside { width: 100%; }
+.computerSidebar, .fileSize, .fileType, .fileDate { display: none; }
+
+@container app-surface (min-width: 440px) {
+  .fileSize { display: block; }
+}
+@container app-surface (min-width: 600px) {
+  .fileType { display: block; }
+  .mail { flex-direction: row; }
+  .contacts {
+    display: block;
+    width: 176px;
+    overflow: auto;
+    border-bottom-width: 0;
+    border-right-width: 1px;
+    white-space: normal;
+  }
+  .contacts > div:first-child { display: flex; }
+  .contacts > p { margin-top: .75rem; }
+}
+@container app-surface (min-width: 720px) {
+  .computerSidebar { display: block; }
+}
+@container app-surface (min-width: 760px) {
+  .results { flex-direction: row; align-items: flex-start; }
+  .resultAside { position: sticky; top: 0; width: 286px; }
+}
+@container app-surface (min-width: 920px) {
+  .fileDate { display: block; }
+}
+
+.player { container: prism / size; }
+.transport { overflow-x: auto; }
+.transport > * { flex-shrink: 0; }
+
+@container prism (max-width: 545px) and (min-height: 300px) {
+  .transport { flex-wrap: wrap; }
+}
+@container prism (max-width: 620px) or (max-height: 450px) {
+  .playerMenus > div { position: static; }
+  .playerMenu {
+    right: auto;
+    left: .375rem;
+    width: min(18rem, calc(100% - .75rem));
+    min-width: 0;
+    max-height: calc(100cqh - 42px);
+    overflow: auto;
+  }
+  .submenu {
+    position: static;
+    margin: .125rem 0 .25rem 1rem;
+    min-width: 0;
+  }
+}
+@container prism (max-width: 400px) {
+  .playerMenus > span:first-child { display: none; }
+  .playerMenus > div > button { padding-inline: .5rem; }
+}

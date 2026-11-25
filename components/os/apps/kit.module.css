@@ -1,0 +1,58 @@
+.page {
+  container: app-page / inline-size;
+  height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(1rem, 4cqw, 2rem);
+  color: var(--os-fg);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--os-accent) 6%, transparent), transparent 18rem);
+}
+.heading {
+  margin-bottom: 1.35rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--os-border);
+}
+.heading h1 {
+  font-size: clamp(1.5rem, 4.2cqw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -.045em;
+  line-height: 1.15;
+}
+.heading p {
+  margin-top: .45rem;
+  color: var(--os-muted);
+  font-size: .875rem;
+  line-height: 1.5;
+}
+.card { min-width: 0; border-radius: .8rem; }
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem 1rem;
+  padding: .8rem 1rem;
+  font-size: .8125rem;
+}
+.row:not(:last-child) { border-bottom: 1px solid var(--os-border); }
+.label { display: flex; align-items: center; gap: .65rem; color: var(--os-fg); }
+.label svg { flex: none; color: var(--os-accent-fg); }
+.value { flex: 1; color: var(--os-muted); text-align: right; overflow-wrap: anywhere; }
+.row button { margin-inline-start: auto; }
+.button {
+  min-height: 2.75rem;
+  padding: .4rem 1rem;
+  border-radius: .55rem;
+  font-size: .8125rem;
+  font-weight: 600;
+}
+.button:hover { box-shadow: inset 0 0 0 1px currentColor; }
+:global([data-window]) .button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -4px;
+}
+@container app-surface (max-width: 26rem) {
+  .row { align-items: start; gap: .3rem .8rem; }
+  .value { flex-basis: 100%; text-align: start; }
+  .row button { margin-inline-start: 0; }
+}

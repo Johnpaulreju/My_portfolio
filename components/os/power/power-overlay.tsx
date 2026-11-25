@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Power } from "lucide-react"
+import { ArrowDown, ArrowUpRight, MapPin, Power } from "lucide-react"
 import { usePower } from "@/lib/os/power-store"
 import { useFullscreen } from "@/lib/os/use-fullscreen"
 import { useWM } from "@/lib/os/wm-store"
 import { PROFILE } from "@/lib/os/content"
 import { BootScreen, PaneMark } from "@/components/os/boot-screen"
 import { Wallpaper } from "@/components/os/wallpaper"
+import { AppIcon } from "@/components/os/app-icon"
+import styles from "./power-entry.module.css"
 import { PhoneLockScreen, PhoneSleepScreen, usePhoneViewport } from "@/components/os/mobile/shade/phone-lock"
 
 export function PowerOverlay({ entry = false, onStart }: { entry?: boolean; onStart?: () => void }) {
@@ -22,6 +24,12 @@ export function PowerOverlay({ entry = false, onStart }: { entry?: boolean; onSt
   return <LockScreen />
 }
 
+const shortcuts = [
+  { app: "projects", title: "Projects", detail: "Selected work and contributions", href: "/about#selected-work" },
+  { app: "resume", title: "Resume", detail: "Experience, education and skills", href: "/resume" },
+  { app: "blog", title: "Writing", detail: "Articles on software and search", href: "/about#blog-heading" },
+] as const
+
 /** The `off` state: one click buys fullscreen AND audio, which no page load can. */
 function PowerScreen({ entry, onStart }: { entry: boolean; onStart?: () => void }) {
   const { powerOn, wantFullscreen, setWantFullscreen } = usePower()
@@ -35,51 +43,46 @@ function PowerScreen({ entry, onStart }: { entry: boolean; onStart?: () => void 
     if (wantFullscreen && supported) enter()
   }
 
-
   return (
-    <div data-power-entry={entry || undefined} className={`${entry ? "relative min-h-[100svh] py-10" : "fixed inset-0 z-[9999]"} grid place-items-center bg-[#05070f]`}>
-      <div className="flex flex-col items-center gap-8 px-6 text-center">
-        <PaneMark size={56} />
-        <div>
-          <h1 className="text-[26px] font-light tracking-tight text-white">{PROFILE.name}</h1>
-          <p className="mt-1 text-[14px] text-white/80">{PROFILE.title}</p>
-          <p className="mt-0.5 text-[13px] text-sky-200/80">{PROFILE.next}</p>
+    <div data-power-entry={entry || undefined} className={`${styles.screen} ${entry ? "" : styles.overlay}`}>
+      <div className={styles.canvas}>
+        <div aria-hidden="true" className={styles.wallpaper}>{entry && <Wallpaper theme="dark" />}</div>
+        <header className={styles.masthead}>
+          <span className={styles.wordmark}><PaneMark size={21} />Portfolio OS</span>
+          <span className={styles.location}><MapPin size={14} aria-hidden="true" />{PROFILE.location}</span>
+        </header>
+
+        <div className={styles.hero}>
+          <div className={styles.identity}>
+            <h1>{PROFILE.name}</h1>
+            <p className={styles.role}>{PROFILE.title}</p>
+            <p className={styles.summary}>{PROFILE.tagline}</p>
+            <div className={styles.controls}>
+              <button type="button" onClick={start} autoFocus={!entry} aria-label="Power on" className={styles.power}>
+                <Power size={19} aria-hidden="true" />Power on
+              </button>
+              <label className={styles.fullscreen} style={{ visibility: supported ? "visible" : "hidden" }}>
+                <input type="checkbox" checked={wantFullscreen} onChange={(e) => setWantFullscreen(e.target.checked)} />
+                Open in full screen
+              </label>
+            </div>
+          </div>
+
+          <nav aria-label="Portfolio shortcuts" className={styles.shortcuts}>
+            <h2>Quick access</h2>
+            <div className={styles.links}>
+              {shortcuts.map(({ app, title, detail, href }) => (
+                <a key={app} href={href} className={styles.link}>
+                  <AppIcon appId={app} size={34} />
+                  <span className={styles.linkText}><strong>{title}</strong><small>{detail}</small></span>
+                  <ArrowUpRight className={styles.arrow} size={17} aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          </nav>
         </div>
 
-        <button
-          type="button"
-          onClick={start}
-          autoFocus={!entry}
-          aria-label="Power on"
-          className="group relative grid h-24 w-24 place-items-center rounded-full transition-transform active:scale-95"
-          style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.18)" }}
-        >
-          <span
-            aria-hidden
-            className="absolute inset-0 rounded-full opacity-60 transition-opacity group-hover:opacity-100"
-            style={{ boxShadow: "0 0 0 1px rgba(120,190,255,.5), 0 0 34px rgba(76,194,255,.45)" }}
-          />
-          <Power size={34} className="relative text-sky-300 transition-colors group-hover:text-sky-200" />
-        </button>
-
-        <p className="text-[13px] text-white/70">Press to start</p>
-
-        <div className="h-5">
-          <label style={{ visibility: supported ? "visible" : "hidden" }} className="flex cursor-pointer items-center gap-2 text-[12.5px] text-white/55">
-            <input
-              type="checkbox"
-              checked={wantFullscreen}
-              onChange={(e) => setWantFullscreen(e.target.checked)}
-              className="h-3.5 w-3.5 accent-sky-400"
-            />
-            Open in full screen
-          </label>
-        </div>
-
-        <p className="max-w-[320px] text-[11.5px] leading-relaxed text-white/60">
-          Press the power button to explore the portfolio, with optional sound and full screen.
-        </p>
-        {entry && <a href="#readable-portfolio" className="text-[13px] text-white/70 underline underline-offset-4">Read the portfolio</a>}
+        {entry && <footer className={styles.footer}><a href="#readable-portfolio"><ArrowDown size={15} aria-hidden="true" />Read the portfolio</a></footer>}
       </div>
     </div>
   )

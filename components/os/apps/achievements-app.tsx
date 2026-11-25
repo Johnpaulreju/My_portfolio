@@ -10,7 +10,7 @@ export function AchievementsApp() {
   return (
     <Page>
       <PageTitle title="Achievements" sub="Certifications and milestones." />
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(216px, 1fr))" }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 216px), 1fr))" }}>
         {ACHIEVEMENTS.map((a) => {
           const Icon = GLYPH[a.icon]
           return (

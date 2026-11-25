@@ -1,5 +1,5 @@
 .frame {
-  container-type: inline-size;
+  container-type: size;
   container-name: mygpt;
   width: 100%;
   height: 100%;
@@ -57,23 +57,28 @@
 .newTop { margin-left: auto; }
 .shell[data-collapsed="true"] .opener { display: inline-grid; }
 .empty, .dock { width: 100%; max-width: 788px; align-self: center; padding: 0 28px; }
-.empty { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; overflow-y: auto; }
-.empty h1 { flex-shrink: 0; margin: 0 0 25px; text-align: center; font-size: clamp(23px, 3.25cqw, 33px); font-weight: 550; letter-spacing: -.045em; line-height: 1.23; }
+.empty { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.intro { margin: auto 0 0; padding: 1rem 0 1.15rem; }
+.empty h1 { margin: 0; text-align: center; font-size: clamp(24px, 3.6cqw, 38px); font-weight: 550; letter-spacing: -.045em; line-height: 1.2; }
+.belowComposer { flex: 1 4 0; max-height: 22cqh; }
+.dock { flex: none; }
 .composerWrap { width: 100%; flex-shrink: 0; }
 .composer { padding: 12px 10px 8px; border-radius: 26px; background: var(--chat-input); border: 1px solid color-mix(in srgb, var(--chat-fg) 15%, transparent); box-shadow: var(--chat-shadow); }
 .composer textarea { width: 100%; border: 0; outline: none; background: transparent; display: block; resize: none; min-height: 29px; padding: 0 9px 5px; line-height: 1.45; font-size: 15px; }
 .composer textarea::placeholder { color: var(--chat-muted); opacity: 1; }
+.composer:focus-within { border-color: var(--os-accent-fg); }
+.composer textarea { max-height: min(8.5rem, 23cqh); }
 .toolbar { justify-content: space-between; position: relative; }
 .toolbar .icon { border-radius: 50%; }
 .send { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--chat-fg); color: var(--chat-bg); }
 .send:disabled { opacity: .42; }
 .send:enabled:hover { opacity: .85; }
-.projectMenu { position: absolute; z-index: 3; bottom: calc(100% + 5px); left: 0; width: min(255px, 100%); max-height: min(180px, 30dvh); overflow: auto; padding: 5px; border-radius: 14px; background: var(--chat-input); border: 1px solid var(--chat-line); box-shadow: var(--chat-shadow); }
+.projectMenu { position: absolute; z-index: 3; bottom: calc(100% + 5px); left: 0; width: min(255px, 100%); max-height: min(180px, 35cqh); overflow: auto; padding: 5px; border-radius: 14px; background: var(--chat-input); border: 1px solid var(--chat-line); box-shadow: var(--chat-shadow); }
 .projectMenu button { display: block; width: 100%; text-align: start; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
 .projectMenu button:hover { background: var(--chat-hover); }
 .starters { gap: 7px; flex-wrap: wrap; justify-content: center; margin-top: 17px; }
 .starters button, .sources a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--chat-line); border-radius: 999px; }
-.starters button { padding: 7px 11px; font-size: 12px; color: var(--chat-muted); background: transparent; white-space: nowrap; }
+.starters button { min-height: 38px; padding: 7px 11px; font-size: 12px; color: var(--chat-fg); background: transparent; white-space: nowrap; }
 .starters button:hover, .sources a:hover { color: var(--chat-fg); background: var(--chat-hover); }
 .disclosure { color: var(--chat-muted); font-size: 10px; line-height: 1.4; text-align: center; padding: 8px 12px; flex-shrink: 0; }
 .transcript { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
@@ -99,6 +104,13 @@
 .confirm div { display: flex; justify-content: flex-end; gap: 8px; }
 .confirm button { border: 1px solid var(--chat-line); border-radius: 999px; font-size: 13px; padding: 6px 13px; }
 .deleteButton { background: #ad3737; color: white; }
+@container mygpt (max-height: 380px) {
+  .belowComposer { flex: none; }
+  .intro { padding-block: .5rem; }
+  .starters { margin-top: .5rem; }
+  .historyLabel { margin-top: .5rem; }
+  .bar { min-height: 38px; }
+}
 @container mygpt (max-width: 690px) {
   .sidebar, .shell[data-collapsed="true"] .sidebar { display: none; position: absolute; inset: 0 auto 0 0; width: min(260px, 85%); z-index: 5; box-shadow: var(--chat-shadow); }
   .shell[data-drawer="true"] .sidebar { display: flex; }
@@ -110,8 +122,24 @@
   .messages { padding: 17px 19px 23px; gap: 19px; }
   .disclosure { font-size: 10px; }
   .trash { opacity: .8; }
+  .starters button, .navAction, .icon, .opener, .send { min-height: 44px; }
+  .icon, .opener, .send { width: 44px; }
 }
 @container mygpt (max-width: 385px) {
   .starters { gap: 5px; }
   .starters button { padding: 6px 8px; font-size: 11px; gap: 5px; }
+}
+
+@container mygpt (max-height: 250px) {
+  .bar { min-height: 2rem; padding-block: 0; }
+  .bar :is(.opener, .icon) { min-height: 2rem; height: 2rem; }
+  .intro { margin: auto 0; padding: .25rem 0; }
+  .empty h1 { display: none; }
+  .starters { flex-wrap: nowrap; justify-content: safe center; overflow-x: auto; margin-top: 0; }
+  .starters button { flex: none; min-height: 2.25rem; }
+  .composer { display: flex; align-items: center; padding: .25rem .4rem; border-radius: 1.1rem; }
+  .composer textarea { flex: 1; min-width: 0; padding: .2rem .5rem; }
+  .toolbar { flex: none; gap: .25rem; }
+  .projectMenu { left: auto; right: 0; width: min(15rem, 70cqw); max-height: 55cqh; }
+  .disclosure { padding-block: .25rem; }
 }

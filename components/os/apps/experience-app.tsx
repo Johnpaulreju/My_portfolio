@@ -47,7 +47,7 @@ function TimelineSection({ title, kind }: { title: string; kind: "work" | "educa
                 style={{
                   background: work ? "var(--os-accent)" : "var(--os-card)",
                   border: "1px solid var(--os-border)",
-                  color: work ? "#fff" : "var(--os-muted)",
+                  color: work ? "var(--os-on-accent)" : "var(--os-muted)",
                 }}
               >
                 <Icon size={13} />

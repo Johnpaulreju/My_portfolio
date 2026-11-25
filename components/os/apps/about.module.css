@@ -1,0 +1,27 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: clamp(.8rem, 3cqw, 1.5rem);
+  padding: clamp(1rem, 4.5cqw, 2.6rem);
+  border: 1px solid #88c8ff38;
+  border-radius: 1rem;
+  color: #f6faff;
+  background:
+    repeating-radial-gradient(circle at 100% 125%, transparent 0 34px, #afd8ff14 35px 36px, transparent 37px 52px),
+    linear-gradient(115deg, #112a48, #193e6d 75%, #285579);
+}
+.monogram {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: clamp(2.65rem, 10cqw, 4.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #c2ddff19;
+  border: 1px solid #d0e8ff4a;
+  font-size: clamp(1.1rem, 4cqw, 1.65rem);
+  font-weight: 400;
+}
+.name { font-size: clamp(1.35rem, 5.4cqw, 2.55rem); font-weight: 550; line-height: 1.15; letter-spacing: -.045em; }
+.role { color: #b0deff; margin: .35rem 0 .15rem; font-size: .92rem; }
+.tagline { margin: 1.3rem 0 .9rem; color: var(--os-fg); font-size: clamp(1rem, 2.65cqw, 1.3rem); line-height: 1.45; }

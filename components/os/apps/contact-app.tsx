@@ -1,5 +1,7 @@
 "use client"
 
+import layout from "./utility-layout.module.css"
+
 import { useSessionWork } from "@/lib/os/session-work"
 
 import { useState } from "react"
@@ -28,9 +30,9 @@ export function ContactApp() {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className={`flex h-full min-h-0 ${layout.mail}`}>
       <aside
-        className="hidden w-[176px] shrink-0 border-r p-2 sm:block"
+        className={`os-scroll shrink-0 p-2 ${layout.contacts}`}
         style={{ borderColor: "var(--os-border)", background: "var(--os-card)" }}
       >
         <div
@@ -63,7 +65,7 @@ export function ContactApp() {
         </p>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5"
           style={{ borderColor: "var(--os-border)" }}
@@ -122,7 +124,7 @@ function Field({
         readOnly={readOnly}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent text-[13px] outline-none placeholder:text-[var(--os-muted)]"
+        className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[var(--os-muted)]"
         style={{ color: readOnly ? "var(--os-accent-fg)" : "var(--os-fg)" }}
       />
     </label>
