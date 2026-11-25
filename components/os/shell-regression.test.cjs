@@ -206,17 +206,14 @@ hookRenderer = null
 const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 const { PortfolioShell } = load('components/os/portfolio-shell.tsx')
-const html = renderToStaticMarkup(React.createElement(PortfolioShell, null,
-  React.createElement('article', { id: 'readable-portfolio' }, 'About, experience, and contact information.'),
-))
-assert(html.includes('id="readable-portfolio"'))
-assert(html.includes('About, experience, and contact information.'))
+const html = renderToStaticMarkup(React.createElement(PortfolioShell))
+assert(!html.includes('readable-portfolio'))
 assert(!html.includes('data-shell-sessions'))
 assert(!html.includes('Display is asleep'))
 assert(html.includes('data-power-entry'))
 assert(html.includes('aria-label="Power on"'))
-assert(html.includes('href="#readable-portfolio"'))
-console.log('PASS: server render exposes a stable power entry plus readable content.')
+assert(!html.includes('Portfolio shortcuts'))
+console.log('PASS: server render exposes a power entry without a second landing page.')
 
 // Shrink, restore and snap must retain identity/payload and fit all controls.
 const g = wm().open('solitaire', { deal: 'retained' })

@@ -1,3 +1,5 @@
+import { courtesyReply } from "./chat-courtesy"
+
 export type ProfileReply = { text: string; links: { label: string; url: string }[] }
 
 export async function askProfile(
@@ -6,6 +8,8 @@ export async function askProfile(
   signal?: AbortSignal,
 ): Promise<ProfileReply | null> {
   if (question.length > 1000) return null
+  const courtesy = courtesyReply(question)
+  if (courtesy) return { text: courtesy, links: [] }
   try {
     const timeout = AbortSignal.timeout(18000)
     const response = await fetch("/api/ask", {

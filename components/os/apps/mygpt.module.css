@@ -5,6 +5,8 @@
   height: 100%;
   min-height: 0;
   isolation: isolate;
+  -webkit-user-select: text;
+  user-select: text;
   --chat-bg: #212121;
   --chat-rail: #181818;
   --chat-input: #303030;
@@ -30,7 +32,7 @@
 }
 .shell { position: relative; display: flex; width: 100%; height: 100%; overflow: hidden; background: var(--chat-bg); }
 .frame :where(button, textarea, input) { font: inherit; color: inherit; }
-.frame button { cursor: pointer; }
+.frame button { cursor: pointer; -webkit-user-select: none; user-select: none; }
 .frame button:focus-visible, .frame a:focus-visible, .search:focus-visible { outline: 2px solid var(--chat-muted); outline-offset: -2px; }
 .frame button:disabled { cursor: default; }
 .sidebar { width: 218px; flex-shrink: 0; min-height: 0; padding: 10px 10px 8px; background: var(--chat-rail); display: flex; flex-direction: column; }
@@ -60,13 +62,20 @@
 .empty { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
 .intro { margin: auto 0 0; padding: 1rem 0 1.15rem; }
 .empty h1 { margin: 0; text-align: center; font-size: clamp(24px, 3.6cqw, 38px); font-weight: 550; letter-spacing: -.045em; line-height: 1.2; }
+.intro p { margin: .65rem auto 0; max-width: 40ch; color: var(--chat-muted); font-size: .875rem; line-height: 1.5; text-align: center; }
 .belowComposer { flex: 1 4 0; max-height: 22cqh; }
 .dock { flex: none; }
 .composerWrap { width: 100%; flex-shrink: 0; }
 .composer { padding: 12px 10px 8px; border-radius: 26px; background: var(--chat-input); border: 1px solid color-mix(in srgb, var(--chat-fg) 15%, transparent); box-shadow: var(--chat-shadow); }
 .composer textarea { width: 100%; border: 0; outline: none; background: transparent; display: block; resize: none; min-height: 29px; padding: 0 9px 5px; line-height: 1.45; font-size: 15px; }
 .composer textarea::placeholder { color: var(--chat-muted); opacity: 1; }
-.composer:focus-within { border-color: var(--os-accent-fg); }
+/* The rounded composer is the textarea’s focus indicator, including in keyboard mode. */
+.composer:has(textarea:focus) { border-color: var(--chat-muted); }
+.frame .composer textarea:focus-visible { outline: none; box-shadow: none; }
+.composer textarea { caret-color: var(--chat-fg); cursor: text; }
+@media (forced-colors: active) {
+  .composer:has(textarea:focus) { border-color: Highlight; }
+}
 .composer textarea { max-height: min(8.5rem, 23cqh); }
 .toolbar { justify-content: space-between; position: relative; }
 .toolbar .icon { border-radius: 50%; }
@@ -119,6 +128,7 @@
   .bar { min-height: 47px; padding-inline: 10px; }
   .empty, .dock { padding: 0 15px; }
   .empty h1 { font-size: clamp(23px, 6.4cqw, 30px); }
+  .composer textarea { font-size: 16px; }
   .messages { padding: 17px 19px 23px; gap: 19px; }
   .disclosure { font-size: 10px; }
   .trash { opacity: .8; }
@@ -134,7 +144,8 @@
   .bar { min-height: 2rem; padding-block: 0; }
   .bar :is(.opener, .icon) { min-height: 2rem; height: 2rem; }
   .intro { margin: auto 0; padding: .25rem 0; }
-  .empty h1 { display: none; }
+  .empty h1 { font-size: 1rem; margin-bottom: .25rem; }
+  .intro p { display: none; }
   .starters { flex-wrap: nowrap; justify-content: safe center; overflow-x: auto; margin-top: 0; }
   .starters button { flex: none; min-height: 2.25rem; }
   .composer { display: flex; align-items: center; padding: .25rem .4rem; border-radius: 1.1rem; }

@@ -154,13 +154,14 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
   function newChat() {
     state.newChat()
     dismissPanels()
-    if (matchMedia("(pointer: fine)").matches) input.current?.focus()
+    if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => input.current?.focus({ preventScroll: true }))
   }
   function send(question?: string) {
     if (!chat || busy || !(question ?? draft).trim()) return
     follow.current = true
     setProjectMenu(false)
     void answer(state.begin(chat.id, question ?? draft))
+    if (question === undefined) input.current?.focus({ preventScroll: true })
   }
   const history = state.sessions.filter((item) => item.messages.length || item.draft.trim()).filter((item) =>
     !search || item.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -217,7 +218,8 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
           </div>}
           {empty && <div className={styles.empty}>
             <div className={styles.intro}>
-              <h1>Ask about Johnpaul</h1>
+              <h1>Hi! What would you like to know?</h1>
+              <p>I’m Johnpaul’s portfolio assistant. Ask me about his projects, his work or how he got started.</p>
               <div className={styles.starters}>
                 {starters.map(({ label, question, Icon }) => <button key={label} disabled={!chat} onClick={() => send(question)}><Icon size={15} />{label}</button>)}
               </div>
@@ -226,7 +228,7 @@ export function MyGPTApp({ win }: { win: WindowInstance }) {
           <div className={styles.dock}>
             <div className={styles.composerWrap}>
               <form className={styles.composer} onSubmit={(e) => { e.preventDefault(); send() }}>
-                <textarea ref={input} aria-label="Message MyGPT" placeholder="Ask about a project, a role or a skill…" rows={1} maxLength={1000} disabled={!chat} value={draft} onChange={(e) => { if (chat) state.setDraft(chat.id, e.target.value) }} onKeyDown={(e) => {
+                <textarea ref={input} aria-label="Message MyGPT" enterKeyHint="send" autoCapitalize="sentences" placeholder="Ask about a project, a role or a skill…" rows={1} maxLength={1000} disabled={!chat} value={draft} onChange={(e) => { if (chat) state.setDraft(chat.id, e.target.value) }} onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) { e.preventDefault(); send() }
                 }} />
                 <div className={styles.toolbar}>

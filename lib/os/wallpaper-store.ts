@@ -3,7 +3,7 @@
 import { create } from "zustand"
 
 /**
- * The desktop background. "default" is the built-in bloom; anything else is a
+ * The desktop background. "default" is the built-in Azure folds wallpaper; anything else is a
  * picture the visitor added from Settings. Pictures live in this browser's
  * localStorage and nowhere else - nothing is uploaded.
  *
@@ -13,6 +13,7 @@ const PREFS_KEY = "jp-os-wallpaper-v1"
 const IMAGES_KEY = "jp-os-wallpapers-v1"
 
 export const DEFAULT_WALLPAPER = "default"
+export const DEFAULT_WALLPAPER_URL = "/media/wallpapers/azure-folds.webp"
 export const MAX_CUSTOM = 8
 
 /**

@@ -4,15 +4,12 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from "react"
 import { Moon, RotateCcw, Sun, Info, Palette, ImagePlus, Image as ImageIcon, Loader2, X } from "lucide-react"
 import { useWM } from "@/lib/os/wm-store"
 import { useFS } from "@/lib/os/fs-store"
-import { DEFAULT_WALLPAPER, MAX_CUSTOM, useWallpaper } from "@/lib/os/wallpaper-store"
+import { DEFAULT_WALLPAPER, DEFAULT_WALLPAPER_URL, MAX_CUSTOM, useWallpaper } from "@/lib/os/wallpaper-store"
 import { PROFILE } from "@/lib/os/content"
 import { Button, Card, Page, PageTitle, Row } from "./kit"
 
-/** Same gradients as the dark/light previews below, so the Default tile matches the desktop. */
-const BLOOM_PREVIEW = {
-  dark: "radial-gradient(90% 90% at 50% 45%, #1b3b6f, #0a1230)",
-  light: "radial-gradient(90% 90% at 50% 45%, #7db4f0, #2a5fb0)",
-}
+const wallpaperPreview = (theme: "dark" | "light") =>
+  `linear-gradient(0deg, ${theme === "light" ? "#d5e6ff24" : "#08142b36"}, transparent), url("${DEFAULT_WALLPAPER_URL}") center / cover`
 
 export function SettingsApp() {
   const { theme, setTheme, closeAll } = useWM()
@@ -49,7 +46,7 @@ export function SettingsApp() {
               {/* Miniature preview of the desktop in that mode. */}
               <span
                 className="block h-16 w-full rounded"
-                style={{ background: BLOOM_PREVIEW[opt.id] }}
+                style={{ background: wallpaperPreview(opt.id) }}
               >
                 <span className="mt-[46px] block h-2.5 w-full rounded-b bg-black/25" />
               </span>
@@ -130,11 +127,11 @@ function BackgroundPicker() {
       </p>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))" }}>
         <WallpaperTile
-          label="Default"
+          label="Azure folds (default)"
           selected={current === DEFAULT_WALLPAPER}
           onSelect={() => select(DEFAULT_WALLPAPER)}
         >
-          <span className="block h-full w-full" style={{ background: BLOOM_PREVIEW[theme] }} />
+          <span className="block h-full w-full" style={{ background: wallpaperPreview(theme) }} />
         </WallpaperTile>
 
         {custom.map((w) => (

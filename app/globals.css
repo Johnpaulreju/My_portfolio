@@ -475,19 +475,6 @@ textarea {
   box-shadow: 0 12px 32px rgba(0, 0, 0, .22);
   backdrop-filter: blur(22px) saturate(1.3);
 }
-.phone-next-chip { background: rgba(110, 231, 183, .15); border: 1px solid rgba(110, 231, 183, .42); color: #d1fae5; }
-.phone-pulse::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: rgb(110, 231, 183);
-  animation: phone-pulse 1.8s ease-out infinite;
-}
-@keyframes phone-pulse {
-  from { transform: scale(1); opacity: .75; }
-  to { transform: scale(2.8); opacity: 0; }
-}
 .phone-pill-btn { background: rgba(255, 255, 255, .14); color: #fff; }
 .phone-pill-btn[data-primary] { background: #dbeafe; color: #0b2a5b; }
 .phone-search-pill, .phone-dock {
@@ -524,7 +511,6 @@ textarea {
   outline-offset: -3px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .phone-pulse::before { animation: none; opacity: 0; }
   .phone-app-tile:active { transform: none; }
 }
 /* Landscape phones: the 3-button nav moves to the right edge, like Android. */

@@ -2,7 +2,7 @@
 
 import { inertProps } from "@/components/os/shell-dom"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PowerOverlay } from "./power/power-overlay"
 import { DesktopShell } from "./desktop/desktop-shell"
 import { PhoneShell } from "./mobile/phone-shell"
@@ -16,7 +16,7 @@ import { usePower } from "@/lib/os/power-store"
 import { useWallpaper } from "@/lib/os/wallpaper-store"
 import { PHONE_QUERY } from "@/lib/os/viewport"
 
-export function PortfolioShell({ children }: { children?: ReactNode }) {
+export function PortfolioShell() {
   const [entered, setEntered] = useState(false)
   const [isPhone, setIsPhone] = useState<boolean | null>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -65,9 +65,7 @@ export function PortfolioShell({ children }: { children?: ReactNode }) {
   return (
     <div ref={root} data-theme={theme} className={!entered || isPhone === null ? "" : `portfolio-shell ${isPhone ? "portfolio-shell-phone" : ""}`}>
       <PowerOverlay entry={!entered} onStart={() => setEntered(true)} />
-      {!entered ? (
-        <div id="readable-portfolio" data-shell-fallback>{children ?? <p>Johnpaul&apos;s portfolio is loading. About, experience, skills, and contact are available in the portfolio apps.</p>}</div>
-      ) : isPhone !== null ? (
+      {entered && isPhone !== null ? (
         <>
           <div className="absolute inset-0" {...inertProps(!running)} aria-hidden={!running || undefined}>
             {isPhone ? <PhoneShell managed /> : <DesktopShell managed />}

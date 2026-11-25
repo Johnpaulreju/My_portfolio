@@ -25,6 +25,7 @@
  */
 
 import { ALL_APPS } from "./app-meta"
+import { courtesyReply } from "./chat-courtesy"
 import { capabilityButton, type CapabilityName } from "./capabilities"
 import {
   ACHIEVEMENTS,
@@ -1359,13 +1360,7 @@ function renderSearch(ctx: Ctx): AssistantAnswer {
 
 function renderHelp(): AssistantAnswer {
   return answer({
-    text:
-      `I answer from one file — the profile content behind this desktop — and nothing else. That ` +
-      `covers who ${PROFILE.name.split(" ")[0]} is, ` +
-      (SHOW_PROJECTS ? `the ${PROJECTS.length} projects listed here, ` : ``) +
-      `his stack, his timeline, his certifications and how to reach him.\n\n` +
-      `I can also drive the desktop: open an app, switch the theme, find a file, show the desktop. ` +
-      `When something isn't in the profile I'll tell you it isn't, rather than making it up.`,
+    text: "I can walk you through Johnpaul’s projects, explain his role on a team, or help you find his public contact details. What are you curious about?",
     actions: acts(act("open-app", "About Me"), openProjects(), openContact()),
     suggestions: ASK_ME,
     confidence: 0.9,
@@ -1375,10 +1370,7 @@ function renderHelp(): AssistantAnswer {
 /** Questions that are perfectly reasonable and simply have no answer here. */
 function renderOffProfile(topic: string): AssistantAnswer {
   return answer({
-    text:
-      `The profile says nothing about ${topic}. I only repeat what Johnpaul has actually published ` +
-      `here, and inventing a plausible answer would be worse than no answer — so: I don't know.\n\n` +
-      `He's reachable at ${PROFILE.email} if it matters.`,
+    text: `Johnpaul hasn’t shared details about ${topic} in his portfolio. If you’d like to ask him directly, his email is ${PROFILE.email}.`,
     actions: acts(openContact()),
     suggestions: ASK_ME,
     confidence: 0.7,
@@ -1705,21 +1697,18 @@ const INTENTS: Intent[] = [
 /** Topics people reasonably ask about that the profile simply doesn't carry. */
 const OFF_PROFILE: { pattern: RegExp; topic: string }[] = [
   { pattern: /\b(age|how old is he|birthday|born in|date of birth|dob)\b/, topic: "his age" },
-  { pattern: /\b(salary|day rate|pay|cost|charges?|budget|pricing|compensation|ctc)\b/, topic: "money — rates, salary or budget" },
+  { pattern: /\b(salary|day rate|pay|cost|charges?|budget|pricing|compensation|ctc)\b/, topic: "his rates, salary or budget" },
   { pattern: /\b(married|wife|girlfriend|spouse|family|kids|children|religion|caste|politics)\b/, topic: "his private life" },
   { pattern: /\b(hobby|hobbies|music|films?|movies?|sports?|football|cricket|favourite food|travel)\b/, topic: "what he does outside work" },
   { pattern: /\b(notice period|visa|sponsorship|relocat|willing to move)\b/, topic: "notice period, visas or relocation" },
-  { pattern: /\b(password|login|credential|api key|secret|token)\b/, topic: "credentials of any kind" },
+  { pattern: /\b(password|login|credential|api key|secret|token)\b/, topic: "private credentials" },
 ]
 
 /* ==================================================================== ask == */
 
-function greeting(): AssistantAnswer {
+function greeting(text = "Hi! I’m Johnpaul’s portfolio assistant. What would you like to know about his work?"): AssistantAnswer {
   return answer({
-    text:
-      `Ask me anything about ${PROFILE.name}. I read from the profile behind this desktop and ` +
-      `nowhere else, so everything below is his own wording — and when a question falls outside it, ` +
-      `I'll say so instead of guessing.`,
+    text,
     suggestions: ASK_ME,
     actions: acts(act("open-app", "About Me"), openProjects()),
     confidence: 1,
@@ -1730,7 +1719,7 @@ function clarify(ctx: Ctx): AssistantAnswer {
   const options = ctx.ambiguous?.options ?? []
   return answer({
     text:
-      `I want to be sure I'm answering about the right one rather than picking for you. ` +
+      `A few things here match that description. ` +
       `Did you mean ${list(options, "or")}?`,
     suggestions: options.map((o) => `Tell me about ${o}`),
     actions: acts(openProjects()),
@@ -1741,8 +1730,8 @@ function clarify(ctx: Ctx): AssistantAnswer {
 function dangling(): AssistantAnswer {
   return answer({
     text:
-      `I've lost the thread — there's nothing earlier in this conversation for that to point at. ` +
-      `Name the project, the app or the topic and I'll pick it straight up.`,
+      `Which project, app or topic did you have in mind? ` +
+      `A name will help me find the right details.`,
     suggestions: ASK_ME,
     confidence: 0.35,
   })
@@ -1750,15 +1739,9 @@ function dangling(): AssistantAnswer {
 
 function unknownAnswer(ctx: Ctx): AssistantAnswer {
   const near = matchEntities(ctx, ["project", "tech", "category", "lab", "doc"], 0.45, 3)
-  const closest = near.length
-    ? `\n\nThe closest things the profile does cover: ${list(near.map((n) => n.entity.label))}.`
-    : ``
+  const closest = near.length ? ` You might be looking for ${list(near.map((n) => n.entity.label), "or")}.` : ""
   return answer({
-    text:
-      `That isn't on this profile, and I only answer from what Johnpaul has actually published here — ` +
-      `so I'd rather say "I don't know" than assemble something that sounds right.` +
-      closest +
-      `\n\nFor anything beyond the profile, ${PROFILE.email} reaches him directly.`,
+    text: `I couldn’t find that detail in Johnpaul’s public portfolio.${closest} You can ask me about his projects or experience, or reach him at ${PROFILE.email}.`,
     // ctx.q, not ctx.raw: norm() has already stripped everything but letters,
     // digits, + and #, so nothing markup-shaped can ride out on an action arg.
     actions: acts(openContact(), act("search", ctx.q.slice(0, 120))),
@@ -1800,6 +1783,9 @@ export function ask(question: string, history: AssistantTurn[] = []): AssistantA
       confidence: 0.3,
     })
   }
+
+  const courtesy = courtesyReply(question)
+  if (courtesy) return greeting(courtesy)
 
   const ctx = buildCtx(question, Array.isArray(history) ? history : [])
 

@@ -184,7 +184,7 @@ export function Learning() {
   return <section className={styles.section}><h2>What I’m learning</h2><p>{PROFILE_LEARNING}</p></section>
 }
 
-/** Visible server content while the interactive shell hydrates, and without JS. */
+/** Readable homepage for visitors using a browser without JavaScript. */
 export function ProfileFallback() {
   return (
     <section data-theme="dark" className={`${styles.page} ${styles.fallback}`} aria-label="Portfolio profile">
@@ -192,7 +192,6 @@ export function ProfileFallback() {
         <SiteNavigation />
         <div className={styles.content}>
           <ProfileIntro />
-          <p>Power on the desktop to explore, or read the pages above.</p>
           <BlogCard />
           <Skills />
           <Availability />

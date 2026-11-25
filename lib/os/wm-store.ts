@@ -5,6 +5,8 @@ import type { AppId, Point, Size, SnapSide, Theme, WindowInstance } from "./type
 import { APP_META } from "./app-meta"
 import { isPhoneViewport } from "./viewport"
 
+const readingApps = new Set<AppId>(["about", "projects", "blog", "experience", "skills", "achievements", "resume", "mygpt"])
+
 const MIN_W = 320
 const MIN_H = 220
 
@@ -160,9 +162,11 @@ export const useWM = create<WMState>((set, get) => ({
     }
 
     const bounds = state.bounds
+    // Give reading apps more space on large monitors while keeping utilities at native size.
+    const scale = readingApps.has(appId) ? Math.min(1.38, Math.max(1, bounds.w / 1550)) : 1
     const size: Size = {
-      w: Math.min(meta.defaultSize.w, Math.max(MIN_W, bounds.w - 40)),
-      h: Math.min(meta.defaultSize.h, Math.max(MIN_H, bounds.h - 40)),
+      w: Math.min(Math.round(meta.defaultSize.w * scale), Math.max(MIN_W, bounds.w - 40)),
+      h: Math.min(Math.round(meta.defaultSize.h * scale), Math.max(MIN_H, bounds.h - 40)),
     }
     const id = nextId()
     const win: WindowInstance = {

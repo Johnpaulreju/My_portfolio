@@ -1,0 +1,81 @@
+.app {
+  --ink: #f5f0e7;
+  --body: #d0cbc1;
+  --muted: #baafa0;
+  --copper: #f5b17e;
+  --edge: #51473e;
+  --paper: #211e1c;
+  --rail: #181716;
+  container: career / size;
+  height: 100%;
+  color: var(--ink);
+  background: var(--paper);
+}
+:global([data-theme="light"]) .app {
+  --ink: #27231e;
+  --body: #4b453d;
+  --muted: #61584d;
+  --copper: #944620;
+  --edge: #d4c8b7;
+  --paper: #f8f5ef;
+  --rail: #efe9df;
+}
+.layout { display: grid; grid-template-columns: minmax(11rem, 28%) minmax(0, 1fr); height: 100%; }
+.rail { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.3rem; padding: clamp(1rem, 2.6cqw, 1.75rem); border-right: 1px solid var(--edge); background: var(--rail); }
+.rail h1 { font-size: clamp(1.35rem, 3cqw, 2.25rem); font-weight: 600; letter-spacing: -.05em; line-height: 1.12; }
+.index { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.index ol { padding-left: .25rem; list-style: none; }
+.index li { position: relative; }
+.index li:not(:last-child)::before { position: absolute; inset: 1.45rem auto -.7rem .34rem; width: 1px; background: var(--edge); content: ""; }
+.index button { position: relative; display: block; width: 100%; min-height: 2.75rem; padding: .35rem .1rem .65rem 1.35rem; text-align: left; color: var(--muted); }
+.index button::before { content: ""; position: absolute; left: .11rem; top: .7rem; width: .54rem; height: .54rem; border: 1px solid var(--muted); border-radius: 50%; background: var(--rail); }
+.index button[aria-current] { color: var(--ink); }
+.index button[aria-current]::before { border-color: var(--copper); background: var(--copper); box-shadow: 0 0 0 3px var(--rail), 0 0 0 4px var(--copper); }
+.indexDate { display: block; font-size: .7rem; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--copper); }
+.indexName { display: block; font-size: .81rem; line-height: 1.35; margin-top: .12rem; }
+.index button:hover .indexName, .next:hover { text-decoration: underline; text-underline-offset: .2em; }
+.progress { margin-top: auto; }
+.progress > span { display: flex; justify-content: space-between; gap: .45rem; color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.progress progress { display: block; width: 100%; height: 3px; margin-top: .4rem; overflow: hidden; appearance: none; border: 0; background: var(--edge); color: var(--copper); }
+.progress progress::-webkit-progress-bar { background: var(--edge); }
+.progress progress::-webkit-progress-value { background: var(--copper); }
+.progress progress::-moz-progress-bar { background: var(--copper); }
+.picker { display: none; min-width: 0; }
+.picker select { width: 100%; min-height: 2.75rem; padding: .3rem .5rem; text-overflow: ellipsis; border: 1px solid var(--edge); border-radius: .4rem; color: var(--ink); background: var(--rail); font-size: .8rem; }
+.reader { container: timeline / size; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--edge) transparent; }
+.reader > ol { list-style: none; }
+.milestone { padding: clamp(1.3rem, 6cqw, 3.25rem); background: var(--paper); }
+.milestone + .milestone { border-top: 1px solid var(--edge); }
+.milestone:last-child { min-height: 100cqh; }
+.milestone article { max-width: 45rem; margin-inline: auto; }
+.stamp { display: flex; gap: .85rem; align-items: baseline; color: var(--copper); }
+.stamp span:first-child { font-family: Georgia, "Times New Roman", serif; font-size: clamp(3.45rem, 16cqw, 6.8rem); line-height: 1; letter-spacing: -.075em; }
+.stamp span:last-child { font-size: .72rem; font-weight: 650; letter-spacing: .075em; text-transform: uppercase; }
+.milestone h2 { max-width: 25ch; margin-top: 1rem; font-size: clamp(1.5rem, 5.4cqw, 2.75rem); letter-spacing: -.047em; line-height: 1.09; font-weight: 600; }
+.org { display: flex; align-items: baseline; gap: .4rem; margin-top: .7rem; color: var(--muted); font-size: .84rem; line-height: 1.45; }
+.org svg { align-self: flex-start; flex: none; margin-top: .1rem; }
+.facts { margin-top: 1.3rem; color: var(--body); font-size: clamp(.88rem, 2.3cqw, 1rem); line-height: 1.62; }
+.facts p + p { margin-top: .65rem; }
+.next { display: inline-flex; align-items: baseline; min-height: 2.75rem; max-width: 100%; gap: .4rem; margin-top: .6rem; padding-block: .6rem; text-align: start; color: var(--copper); font-size: .8rem; line-height: 1.5; }
+.next svg { flex: none; align-self: flex-start; margin-top: .1rem; }
+.app :is(button, select, .reader):focus-visible { outline: 2px solid var(--copper); outline-offset: -2px; }
+@container career (max-width: 38rem) or (max-height: 19rem) {
+  .layout { display: flex; flex-direction: column; }
+  .rail { display: grid; grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); align-items: center; gap: .5rem; flex: none; border: 0; border-bottom: 1px solid var(--edge); padding: .55rem .9rem .65rem; }
+  .rail h1 { font-size: 1.16rem; }
+  .index { display: none; }
+  .picker { display: block; }
+  .progress { grid-column: 1 / -1; width: 100%; }
+  .progress > span { display: none; }
+  .progress progress { margin: 0; }
+  .reader { flex: 1; }
+}
+
+
+@container timeline (max-height: 13rem) {
+  .milestone { padding: .8rem 1.15rem; }
+  .stamp span:first-child { font-size: 2.45rem; }
+  .milestone h2 { margin-top: .4rem; max-width: none; font-size: 1.3rem; }
+  .org { margin-top: .35rem; }
+  .facts { margin-top: .65rem; }
+}

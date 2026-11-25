@@ -106,7 +106,7 @@ export const APP_META: Record<AppId, AppMeta> = {
   },
   welcome: {
     id: "welcome", title: "Welcome", short: "Welcome", icon: "PartyPopper",
-    tint: ["#e879f9", "#a21caf"], defaultSize: { w: 760, h: 430 },
+    tint: ["#e879f9", "#a21caf"], defaultSize: { w: 760, h: 450 },
     chrome: "dialog",
     singleton: true, onDesktop: false, pinned: false,
   },

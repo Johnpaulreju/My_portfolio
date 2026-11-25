@@ -1,6 +1,6 @@
 "use client"
 
-import { AlarmClock, FileBadge, Hand } from "lucide-react"
+import { AlarmClock, Compass, FileBadge, Hand } from "lucide-react"
 import { PROFILE } from "@/lib/os/content"
 import { nextAlarm, useClockStore } from "@/lib/os/clock-store"
 import type { Launch } from "./app-tile"
@@ -43,10 +43,6 @@ export function ProfileWidget({ onLaunch, compact = false }: { onLaunch: Launch;
           <span className="block text-[21px] font-semibold leading-tight">{PROFILE.title}</span>
         </span>
       </div>
-      <p className={`phone-next-chip inline-flex ${compact ? "mt-2" : "mt-3"} max-w-full items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium`}>
-        <span className="phone-pulse relative inline-flex h-2.5 w-2.5 shrink-0" aria-hidden><span className="absolute inset-0 rounded-full bg-emerald-300" /></span>
-        <span className="min-w-0">{PROFILE.next}</span>
-      </p>
       <p className={`text-[13.5px] leading-snug text-white/90 ${compact ? "mt-1.5" : "mt-2.5"}`}>{PROFILE.tagline}</p>
       <div className={`flex gap-2 ${compact ? "mt-2" : "mt-3"}`}>
         <button type="button" onClick={(e) => onLaunch("contact", e.currentTarget)} className="phone-pill-btn inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium" data-primary>
@@ -54,6 +50,9 @@ export function ProfileWidget({ onLaunch, compact = false }: { onLaunch: Launch;
         </button>
         <button type="button" onClick={(e) => onLaunch("resume", e.currentTarget)} className="phone-pill-btn inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium">
           <FileBadge size={16} aria-hidden />Resume
+        </button>
+        <button type="button" onClick={(e) => onLaunch("welcome", e.currentTarget)} className="phone-pill-btn inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium">
+          <Compass size={16} aria-hidden />Guide
         </button>
       </div>
     </section>

@@ -1,36 +1,61 @@
 "use client"
 
-import { SKILL_GROUPS } from "@/lib/os/content"
-import { Card, Page, PageTitle } from "./kit"
+import { useState } from "react"
+import { Search, X } from "lucide-react"
+import { SKILL_GROUPS, type SkillStatus } from "@/lib/os/content"
+import styles from "./skills.module.css"
+
+const statuses = ["All", "Building", "Studying"] as const
 
 export function SkillsApp() {
+  const [query, setQuery] = useState("")
+  const [status, setStatus] = useState<SkillStatus | "All">("All")
+  const term = query.trim().toLowerCase()
+  const groups = SKILL_GROUPS.map((group) => {
+    const groupMatch = [group.label, group.hint].some((value) => value.toLowerCase().includes(term))
+    const items = group.items.filter((item) =>
+      (status === "All" || item.status === status) && (groupMatch || item.name.toLowerCase().includes(term)),
+    )
+    return { ...group, items }
+  }).filter((group) => group.items.length)
+  const total = groups.reduce((count, group) => count + group.items.length, 0)
+
   return (
-    <Page>
-      <PageTitle title="Skills" sub="Tools I build with and areas I'm studying." />
-      <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
-        {SKILL_GROUPS.map((group) => (
-          <Card key={group.label} className="p-5">
-            <h2 className="text-base font-semibold tracking-tight">{group.label}</h2>
-            <p className="mb-4 mt-1 text-sm text-[var(--os-muted)]">{group.hint}</p>
-            {(["Building", "Studying"] as const).map((status) => {
-              const items = group.items.filter((skill) => skill.status === status)
-              if (!items.length) return null
-              return (
-                <section key={status} className="mt-3">
-                  <h3 className="mb-2 text-xs font-medium text-[var(--os-accent-fg)]">{status}</h3>
-                  <ul className="flex flex-wrap gap-1.5">
-                    {items.map((skill) => (
-                      <li key={skill.name} className="rounded-md bg-[var(--os-input)] px-2 py-1 text-[13px]">
-                        {skill.name}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )
-            })}
-          </Card>
-        ))}
+    <div className={`os-scroll ${styles.page}`}>
+      <div className={styles.sheet}>
+        <header className={styles.heading}>
+          <h1>Skills</h1>
+          <p>Tools I build with and areas I’m studying.</p>
+        </header>
+
+        <div className={styles.tools}>
+          <div className={styles.filters} role="group" aria-label="Skill status">
+            {statuses.map((option) => <button key={option} type="button" aria-pressed={option === status} onClick={() => setStatus(option)}>{option}</button>)}
+          </div>
+          <div className={styles.search}>
+            <Search size={16} aria-hidden="true" />
+            <input aria-label="Search skills" placeholder="Find a skill" type="text" value={query} onChange={(event) => setQuery(event.target.value)} />
+            {query && <button type="button" aria-label="Clear skill search" onClick={() => setQuery("")}><X size={15} aria-hidden="true" /></button>}
+          </div>
+        </div>
+
+        <p role="status" className={styles.count}>{total} {total === 1 ? "skill" : "skills"}</p>
+        <div className={styles.index}>
+          {groups.map((group) => (
+            <section key={group.label} className={styles.group}>
+              <header>
+                <h2>{group.label}</h2>
+                <p>{group.hint}</p>
+              </header>
+              <ul>{group.items.map((skill) => <li key={skill.name}>{skill.name}</li>)}</ul>
+            </section>
+          ))}
+          {total === 0 && <div className={styles.empty}>
+            <p>No matching skills.</p>
+            <button type="button" onClick={() => { setQuery(""); setStatus("All") }}>Reset filters</button>
+          </div>}
+        </div>
       </div>
-    </Page>
+    </div>
   )
 }

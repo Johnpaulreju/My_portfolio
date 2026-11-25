@@ -46,7 +46,7 @@ export function DesktopShell({ managed = false }: { managed?: boolean }) {
     if (powerState !== "running") return
     let seen = true
     try {
-      seen = localStorage.getItem("jp-os-welcomed") === "1"
+      seen = localStorage.getItem("jp-os-quick-guide-v2") === "1"
     } catch {
       /* private mode: just skip it */
     }
@@ -54,7 +54,7 @@ export function DesktopShell({ managed = false }: { managed?: boolean }) {
     const t = setTimeout(() => {
       open("welcome")
       try {
-        localStorage.setItem("jp-os-welcomed", "1")
+        localStorage.setItem("jp-os-quick-guide-v2", "1")
       } catch {
         /* ignore */
       }

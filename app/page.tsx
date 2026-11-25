@@ -9,9 +9,8 @@ export default function Home() {
   return (
     <>
       <StructuredData />
-      <PortfolioShell>
-        <ProfileFallback />
-      </PortfolioShell>
+      <PortfolioShell />
+      <noscript><ProfileFallback /></noscript>
     </>
   )
 }

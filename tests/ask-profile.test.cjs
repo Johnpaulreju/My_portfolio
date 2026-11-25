@@ -18,6 +18,9 @@ function harness(fetch) {
     }).outputText
     function localRequire(id) {
       const base = id.startsWith("@/") ? path.join(root, id.slice(2)) : path.resolve(path.dirname(file), id)
+      if (base === path.join(root, "lib/os/capabilities")) return {
+        capabilityButton: (name, arg) => ({ name, arg, label: name }),
+      }
       return load(base + ".ts")
     }
     vm.runInNewContext(source, {
@@ -32,7 +35,11 @@ function harness(fetch) {
     method: "POST", body: JSON.stringify({ question, previous }),
     headers: { "Content-Type": "application/json", ...headers },
   }))
-  return { env, query }
+  return {
+    env, query,
+    client: load(path.join(root, "lib/os/ask-profile.ts")).askProfile,
+    local: (...args) => load(path.join(root, "lib/os/assistant.ts")).ask(...args),
+  }
 }
 
 function provider(choice) {
@@ -47,7 +54,7 @@ test("Gemini selects approved education facts; extra provider prose and URLs nev
     assert.equal(init.headers["x-goog-api-key"], "test-only")
     return provider({ status: "answer", ids: ["education"], text: "Invented answer", links: ["https://example.com"] })
   })
-  const answer = await (await h.query("Where did Johnpaul study?")).json()
+  const answer = await (await h.query("Hello! Where did Johnpaul study?")).json()
   assert.match(answer.text, /Kristu Jayanti/)
   assert.match(answer.text, /JECRC University/)
   assert.doesNotMatch(JSON.stringify(answer), /Invented|example\.com/)
@@ -117,4 +124,28 @@ test("the same-origin gate accepts the actual loopback browser authority", async
   })
   assert.equal(result.status, 200)
   assert.match((await result.json()).text, /primary or secondary/)
+})
+
+test("standalone greetings and thanks get the same local, browser and API reply without spending a provider call", async () => {
+  let calls = 0
+  const h = harness(() => { calls++; throw Error("unexpected request") })
+  for (const [q, expected] of [["hey!", /good to meet you/i], ["👋🏽", /good to meet you/i], ["Hi, how are you?", /ready to help/], ["Thanks for your help!", /welcome/i]]) {
+    const { text } = await (await h.query(q)).json()
+    assert.match(text, expected)
+    assert.equal((await h.client(q)).text, text)
+    assert.equal(h.local(q).text, text)
+  }
+  assert.equal(calls, 0)
+})
+
+test("polite words preserve the actual question, including private and unrelated requests", async () => {
+  let calls = 0
+  const h = harness(() => { calls++; return provider({ status: "unrelated", ids: [] }) })
+  assert.match((await (await h.query("Hey, can you write a poem?")).json()).text, /about Johnpaul/)
+  assert.equal(calls, 1)
+  delete h.env.GEMINI_API_KEY
+  const q = "Thanks! Where did he study?"
+  assert.match((await (await h.query(q)).json()).text, /Kristu Jayanti/)
+  assert.match(h.local(q).text, /Kristu Jayanti/)
+  assert.equal(h.local("Hi, what’s his salary?").unknown, true)
 })

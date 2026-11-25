@@ -1,0 +1,24 @@
+.page { container: recognition / inline-size; height: 100%; overflow-y: auto; overscroll-behavior: contain; color: var(--os-fg); background: var(--os-surface); }
+.sheet { max-width: 55rem; margin: auto; padding: clamp(1.1rem, 4cqw, 2.5rem); }
+.sheet h1 { font-size: clamp(2rem, 5cqw, 3.2rem); line-height: 1.1; letter-spacing: -.055em; font-weight: 620; }
+.feature { position: relative; isolation: isolate; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .45rem 1.15rem; overflow: hidden; margin-top: 1.1rem; padding: clamp(1.1rem, 4cqw, 2.4rem); border: 1px solid #a7864c; border-radius: .6rem; color: #fbefd5; background: #2b251e; }
+.feature::before { content: ""; z-index: -1; position: absolute; inset: 0; background: repeating-radial-gradient(ellipse at 112% 140%, transparent 0 23px, #d5a75f26 24px, transparent 25px 35px); }
+.feature svg { color: #f0bf70; }
+.feature h2 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.65rem, 5cqw, 2.65rem); font-weight: 500; letter-spacing: -.04em; line-height: 1.1; }
+.feature p { grid-column: 2; max-width: 44ch; font-size: .88rem; line-height: 1.5; color: #f1dfbd; }
+.credentials { margin-top: 1.5rem; }
+.credentials h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -.025em; }
+.credentials ul { margin-top: .65rem; border-top: 1px solid var(--os-border); list-style: none; }
+.credentials li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .3rem .8rem; padding: .9rem .1rem; border-bottom: 1px solid var(--os-border); }
+.credentials li svg { color: var(--os-accent-fg); }
+.credentials strong { font-size: .91rem; font-weight: 550; }
+.credentials li span { color: var(--os-muted); font-size: .77rem; }
+.resume { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .35rem; margin-top: .65rem; color: var(--os-accent-fg); font-size: .85rem; }
+.resume:hover { text-decoration: underline; text-underline-offset: 2px; }
+.resume:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+@container recognition (max-width: 23rem) {
+  .feature { grid-template-columns: 1fr; }
+  .feature p { grid-column: 1; }
+  .credentials li { grid-template-columns: auto minmax(0, 1fr); }
+  .credentials li span { grid-column: 2; }
+}
