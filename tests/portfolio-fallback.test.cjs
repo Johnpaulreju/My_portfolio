@@ -36,6 +36,6 @@ test("fallback reuses the current chat's actual public subjects for GitHub and e
 })
 
 test("an unavailable model never turns an unsupported or unrelated question into a factual claim", () => {
-  for (const q of ["What is Johnpaul’s salary?", "Does Johnpaul speak Finnish?", "What is a GitHub repository?", "What was Johnpaul's GPA?", "Which languages could John Lennon use in a conversation with a client?"])
+  for (const q of ["What is Johnpaul’s home address?", "Does Johnpaul speak Finnish?", "What is a GitHub repository?", "What was Johnpaul's GPA?", "Which languages could John Lennon use in a conversation with a client?"])
     assert.equal(select(q), undefined, q)
 })

@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import type { ProfileReply } from "./ask-profile"
+import { isProfileReplyUrl } from "./profile-contact"
 
 export type ChatMessage = ProfileReply & {
   id: string
@@ -81,7 +82,7 @@ function restoreSession(raw: string, expectedId: string): ChatSession | null {
     ids.add(item.id)
     const links = Array.isArray(item.links) ? item.links.filter(
       (link): link is { label: string; url: string } => isRecord(link) &&
-        typeof link.label === "string" && typeof link.url === "string" && /^https:\/\//i.test(link.url),
+        typeof link.label === "string" && typeof link.url === "string" && isProfileReplyUrl(link.url),
     ) : []
     messages.push({
       id: item.id, role: item.role, createdAt: item.createdAt, links,

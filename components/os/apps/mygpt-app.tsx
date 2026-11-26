@@ -66,7 +66,7 @@ function Reply({ message, retry }: { message: ChatMessage; retry?: () => void })
       {message.text && <p>{message.text}</p>}
       {message.status === "pending" && <span role="status" className={styles.thinking}><i aria-hidden />Thinking…</span>}
       {message.links.length > 0 && <div className={styles.sources}>{message.links.map(({ label, url }) =>
-        <a key={url} href={url} target="_blank" rel="noreferrer"><Link2 size={13} />{label}<ArrowUpRight size={12} /></a>
+        <a key={url} href={url} target={url.startsWith("https:") ? "_blank" : undefined} rel="noreferrer"><Link2 size={13} />{label}<ArrowUpRight size={12} /></a>
       )}</div>}
       {message.role === "assistant" && message.status !== "pending" && (
         <div className={styles.replyActions}>

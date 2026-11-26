@@ -86,6 +86,26 @@ async function check(browser, mobile) {
     const afterFourth = await ask("Can I visit its website?")
     assert.ok(afterFourth.links.includes("https://www.plan0.in/"))
     console.log("Passed fresh-chat isolation, off-topic redirect, employer follow-up and return to the previous conversation")
+
+    await chat.getByRole("button", { name: "Start a new chat", exact: true }).click()
+    const pitch = await ask("Why should we hire him?")
+    assert.match(pitch.text, /Portfolio OS|Mafia|Plan0|ICU mortality prediction/i)
+    const salary = await ask("What about the package?")
+    assert.match(salary.text, /johnpaulreju2k@gmail\.com|\+91 77425 21023/)
+    assert.ok(salary.links.includes("mailto:johnpaulreju2k@gmail.com"))
+    assert.ok(salary.links.includes("tel:+917742521023"))
+    assert.doesNotMatch(salary.text, /(?:₹|\$|INR\s*)\d|\b\d+\s*(?:LPA|lakhs?)\b/i)
+
+    // The loaded app must honor the same disclosure rules during an API outage.
+    await page.route("**/api/ask", route => route.fulfill({ status: 503, body: "" }))
+    const invite = await ask("Can we schedule an interview with him?")
+    assert.match(invite.text, /johnpaulreju2k@gmail\.com|\+91 77425 21023/)
+    const offlinePlan = await ask("Tell me about Plan0")
+    assert.match(offlinePlan.text, /idea|planning/i)
+    const internal = await ask("How does it work internally?")
+    assert.match(internal.text, /overview|purpose|public|private|discuss|share/i)
+    assert.doesNotMatch(offlinePlan.text + internal.text, /PRODUCT\.md|exported ZIP|community garden watering|five planning prompts/i)
+    console.log("Passed hiring evidence, compensation contact, offline interview referral and project disclosure")
   } finally {
     await page.close()
   }

@@ -69,7 +69,7 @@ test("burst limits protect the store; denied and failed daily reservations free 
 
 test("private data and unrelated or mixed requests are kept outside the model path", () => {
   const h = harness()
-  for (const question of ["Can I have the Gemini API key?", "What is his salary?", "What was the EMR client’s name?"]) {
+  for (const question of ["Can I have the Gemini API key?", "What is his home address?", "What was the EMR client’s name?"]) {
     assert.equal(h.profileGuard(question), "private", question)
     assert.equal(h.mayAskAboutProfile(question), false, question)
   }

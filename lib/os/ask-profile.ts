@@ -1,6 +1,7 @@
 import { profileGuard } from "./profile-intent"
 import { publicProfileHistory } from "./profile-history"
 import { courtesyReply } from "./chat-courtesy"
+import { isProfileReplyUrl } from "./profile-contact"
 
 export type ProfileReply = { text: string; links: { label: string; url: string }[]; factIds?: string[] }
 
@@ -38,7 +39,7 @@ export async function askProfile(
       text: reply.text,
       factIds: Array.isArray(reply.factIds) ? reply.factIds.filter((id: unknown) => typeof id === "string").slice(0, 6) : undefined,
       links: reply.links.filter((link: { label?: unknown; url?: unknown } | null) =>
-        typeof link?.label === "string" && typeof link.url === "string" && /^https:\/\//.test(link.url)),
+        typeof link?.label === "string" && typeof link.url === "string" && isProfileReplyUrl(link.url)),
     }
   } catch {
     return null

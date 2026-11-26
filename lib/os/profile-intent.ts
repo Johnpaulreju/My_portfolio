@@ -1,6 +1,7 @@
 import { courtesyReply } from "./chat-courtesy"
 import { PUBLISHED_ARTICLES } from "./blog"
 import { PROJECTS, TIMELINE } from "./content"
+import { recruiterFacts } from "./recruiter-intent"
 
 // A transposed pair in an introduction is common on a phone. Keep corrections
 // local to this grammar so other people's names and project titles stay intact.
@@ -60,9 +61,11 @@ export function isOutsideProfileScope(question: string) {
   // Lennon study?". JP Tube is the name of the portfolio's own video app.
   const words = introductionWords(question.replace(/[’']s\b/gi, " ~s ")).replace(/\bjp tube\b/g, "video app")
   const subject = words.replace(ownerName, "@")
-  const candidate = /\b(?:did|does|has|had|was|is|can) @ ([a-z-]+) (?:study|studied|attend|graduate|go|earn|work|worked|build|create|write|join|live|based)\b/.exec(subject)
+  const candidate = /\b(?:did|does|has|had|was|is|can|will|would) @ ([a-z-]+) (?:study|studied|attend|graduate|go|earn|work|worked|build|create|write|join|live|based|want|expect)\b/.exec(subject)
   // Ordinary adverbs and helper verbs can also fit between the name and predicate.
   if (candidate && !/^(?:ever|first|last|once|still|help|also|both|most|best|really|actually|currently|previously|originally|usually|primarily|recently)$/.test(candidate[1])) return true
+  const recruit = /\b(?:hire|hiring|interview|interviewing|pay|consider) @ ([a-z-]+)/.exec(subject)
+  if (recruit && !/^(?:for|as|in|at|on|and|or|to|with|again|now|today|tomorrow|next|this|please|instead|over|more|less|per|about)$/.test(recruit[1])) return true
 
   // A possessive surname marks the subject even without a verb or capitalization.
   return /@ [a-z-]+ ~s\b/.test(subject)
@@ -73,14 +76,16 @@ export function profileGuard(question: string): "private" | "unrelated" | null {
   const q = question.normalize("NFKC").toLowerCase().replace(/[’‘]/g, "'")
   if (/\b(?:api[ _-]?keys?|passwords?|passphrases?|access[ _-]?tokens?|private[ _-]?keys?|secret[ _-]?keys?|environment variables?|system (?:prompt|instructions?)|developer (?:message|instructions?)|gemini_api_key)\b|(?:^|\s)\.env\b/.test(q)
       || /\b(?:aiza[\w-]{28,}|bearer\s+[\w.~-]{16,})\b/.test(q)
-      || /\b(?:salary|home address|private address|medical records of|patient names?|patient data|date of birth|who is his (?:wife|partner))\b/.test(q)
+      || /\b(?:home address|private address|medical records of|patient names?|patient data|date of birth|who is his (?:wife|partner))\b/.test(q)
       || /\b(?:emr|clinical|hospital)\b.{0,35}\b(?:client(?:'s)? (?:name|identity)|which client|name (?:the|that|their) client)\b/.test(q)
       || /\b(?:who|which|name|identify|reveal)\b.{0,35}\b(?:client|clinic|hospital)\b.{0,35}\b(?:emr|scribe|clinical)\b/.test(q)) return "private"
   if (isOutsideProfileScope(question)
       || /^(?:(?:hi|hey|hello)[,!.]?\s+)?(?:what (?:is|are)|explain|define) (?:a |an )?(?:github (?:repos?|repositor(?:y|ies))|git repositor(?:y|ies)|github|sqlite|python|javascript|react|django|fastapi)\s*[?.!]*$/.test(q.trim())
       || /\b(?:ignore|override|disregard)\b.{0,30}\b(?:instructions|guardrails|rules)\b/.test(q)
       || /(?:^|[,.!?;]\s*|\b(?:and|then|also)\s+)(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:write|generate|compose|make|tell)\s+(?:me\s+)?(?:an? |some )?(?:joke|poem|song|recipe|script|essay)\b/.test(q)
-      || /\b(?:the (?:current |latest )?weather|weather forecast|latest (?:news|score)|stock price|capital (?:city )?of)\b/.test(q)) return "unrelated"
+      || /\b(?:the (?:current |latest )?weather|weather forecast|latest (?:news|score)|stock price|capital (?:city )?of)\b/.test(q)
+      || /\b(?:prepare|prep|practice|train|coach)\b.*\b(?:my|me for (?:an?|the))\b.*\binterview\b|\b(?:what is|define|explain) (?:an? |the term )(?:compensation package|ctc|salary|job interview|interview)\b/.test(q)) return "unrelated"
+  if (/\bsalary\b/.test(q) && !recruiterFacts(question)) return "private"
   return null
 }
 
@@ -113,6 +118,7 @@ export function mayAskAboutProfile(
   previousFacts: readonly (readonly string[])[] = [],
 ): boolean {
   if (profileGuard(question)) return false
+  if (recruiterFacts(question)) return true
   const words = scopeWords(question)
   if (namesPortfolioSubject(words) || bareTopics.test(words)) return true
   if (/\b(?:john|he|his|him)\b/.test(words) && (publicTopics.test(words)

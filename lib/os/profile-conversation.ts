@@ -1,8 +1,9 @@
 import { courtesyReply } from "./chat-courtesy"
 import { PROJECTS } from "./content"
+import { recruiterFacts } from "./recruiter-intent"
 
 type RequestType = "overview" | "work" | "repository" | "website" | "demo" | "campus"
-type State = { subjects: string[]; places?: string[]; pending?: RequestType }
+type State = { subjects: string[]; places?: string[]; pending?: RequestType; recruiting?: boolean; limitedProject?: boolean }
 type Selection = { ids: string[] } | { clarification: string }
 
 const places = {
@@ -47,6 +48,7 @@ function subjectsOf(ids: readonly string[]) {
     const project = id.replace(/^(?:repo|website|demo|project)-/, "")
     if (project !== id && projectIds.includes(project)) return [project]
     if (Object.hasOwn(projectGroups, id)) return projectGroups[id]
+    if (id === "clinical-work") return ["clinical-emr"]
     if (id === "education" || id === "campuses") return collegeSubjects
     if (id === "experience") return workSubjects
     if (id === "work-jecrc") return ["bca"]
@@ -87,7 +89,7 @@ const workWords = new Set("a about academic accomplishments actually all and any
 const basicQuestions: [RegExp, string][] = [
   [/^(?:skills|(?:what are|list|show me) his (?:technical )?skills|(?:whats|what is) his (?:tech )?stack|what (?:tools|technologies) does he use)$/, "skills"],
   [/^what is he (?:currently )?(?:learning|studying now)$/, "learning"],
-  [/^(?:how (?:do|can) i (?:contact|reach) (?:him|he)|(?:whats|what is) his (?:work )?(?:email|contact information)|contact)$/, "contact"],
+  [/^(?:how (?:do|can) i (?:contact|reach) (?:him|he)|(?:whats|what is|show me|give me) his (?:work |public )?(?:email(?: address)?|contact (?:information|details|number)|phone(?: number)?)|contact)$/, "contact"],
   [/^(?:where (?:is he (?:based|located)|does he live)|(?:whats|what is) his location)$/, "location"],
   [/^(?:what (?:articles|blog posts) (?:has he written|has he published|did he write)|(?:show me|list) his (?:articles|blog posts)|his blog)$/, "articles"],
   [/^(?:is he (?:currently )?(?:available|open) (?:for|to) (?:work|freelance (?:work|projects))|(?:whats|what is) his availability)$/, "availability"],
@@ -115,6 +117,25 @@ function turn(question: string, state: State): { selection: Selection; subjects:
   function facts(ids: string[]) {
     return { selection: { ids }, subjects: subjectsOf(ids) }
   }
+  const recruiting = recruiterFacts(question, state.recruiting)
+  if (recruiting) return facts(recruiting)
+  const subjects = named.length ? named : state.subjects
+  const employerWork = /\b(?:employer|client|company|professional|commercial|internal|workplace) (?:work|projects?|systems?)\b/.test(q)
+  const limited = employerWork || subjects.some(id => workSubjects.includes(id)
+    || (projectIds.includes(id) && !["portfolio-os", "mafia", "icu-research"].includes(id)))
+    || (!named.length && state.limitedProject)
+  const technicalTopic = /\b(?:internals?|internally|under the hood|architectures?|implementation|implemented|technical details?|source files?|source code|codebase|schema|prompts?|roadmap|pipelines?|algorithms?|workflow|configurations?|models?|database|stack|frameworks?|logic|infrastructure|tech(?:nologies)?|step by step|exactly how|how exactly|in detail)\b/
+  const sourceLocation = /^(?:where (?:can|could) i (?:browse|read|see|find|view|access)|show me) (?:its|the|@) source (?:files?|code)$/.test(q)
+  if (sourceLocation && subjects.length) return selected("repository", subjects)
+  const publicLink = /\b(?:github|repo|repos|repository|repositories|website|url|link)\b/.test(q) && !/\bprivate\b/.test(q)
+  const technicalFollowUp = /^(?:(?:and |what about |which |what |the |his |was |is |what were |tell me about )+)?(?:architecture|tech stack|stack|implementation|databases?|technical details?|internals|models?|frameworks?|technologies|tools?)(?: (?:did he use|were used))?$/.test(q)
+  const specific = named.length || employerWork || reference || technicalFollowUp
+  if (limited && specific && technicalTopic.test(q) && !publicLink)
+    return { selection: { ids: ["project-disclosure"] }, subjects }
+  if ((!named.length || named.includes("smart-admission-manager")) && /\b(?:admissions? interviews?|interview scheduling)\b/.test(q) && /\b(?:his|he|project|@)\b/.test(q))
+    return facts(["project-smart-admission-manager"])
+  if (subjects.length && /^(?:what(?:s| is) (?:the |its )?(?:main )?(?:purpose|goal)(?: of (?:@|it))?|what (?:is (?:@|it) (?:for|about)|does (?:@|it) do)|who is (?:@|it) for|how does (?:@|it) work|(?:whats|what is) @ (?:main )?(?:purpose|goal))$/.test(q))
+    return selected("overview", subjects)
   const basic = basicQuestions.find(([pattern]) => pattern.test(q))
   if (basic) return facts([basic[1]])
   if (/^(?:which school|what school|high school|primary school|secondary school|schooling)$/.test(q)
@@ -175,7 +196,12 @@ export function resolveProfileConversation(question: string, previous: readonly 
     }
     const selectedIds = result && "ids" in result.selection ? result.selection.ids : []
     const answeredIds = ids?.length ? ids : selectedIds
-    state = { subjects: subjectsOf(answeredIds) }
+    const limitedProject = answeredIds.includes("project-disclosure")
+    state = {
+      subjects: limitedProject ? result?.subjects ?? [] : subjectsOf(answeredIds),
+      limitedProject,
+      recruiting: answeredIds.some(id => id === "hiring-fit" || id === "compensation-contact" || id === "interview-contact"),
+    }
     // "There" refers to the institution even if the reply named two projects.
     // "It" refers to the project actually returned in the answer.
     if (result && selectedIds.some((id) => answeredIds.includes(id))) state.places = result.subjects.filter(isPlace)
