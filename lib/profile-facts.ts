@@ -56,6 +56,7 @@ const projectFacts: ProfileFact[] = PROJECTS.flatMap((project) => {
 })
 
 const articleIds: Record<string, string> = {
+  "85ecacf315b2": "article-sqlite",
   e5230a5214ff: "article-seo",
   bd84d28832ca: "article-complexity",
 }
@@ -111,7 +112,7 @@ export const profileFacts: ProfileFact[] = [
   { id: "linkedin", text: "Johnpaul lists LinkedIn as a professional contact channel.", links: [linkedin] },
   { id: "github", text: "Johnpaul publishes code on GitHub under Johnpaulreju.", links: [github] },
   { id: "repositories", text: "The portfolio has identified public GitHub repositories for Portfolio OS, Mafia and the ICU mortality prediction research. Select a project to check its repository.", links: [github] },
-  { id: "articles", text: `Johnpaul writes on Medium. Published articles include ${PUBLISHED_ARTICLES.map((a) => `“${a.title}”`).join(" and ")}.`, links: [medium] },
+  { id: "articles", text: `Johnpaul writes on Medium. Published articles include ${new Intl.ListFormat("en").format(PUBLISHED_ARTICLES.map((a) => `“${a.title}”`))}.`, links: [medium] },
   { id: "repo-articles", text: "Johnpaul’s publications are on Medium. His portfolio lists no public source-code repositories for those articles.", links: [medium] },
   ...projectFacts,
   ...articleFacts,

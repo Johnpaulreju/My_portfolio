@@ -10,4 +10,3 @@ export const projectPreviews: Readonly<Partial<Record<string, string>>> = {
 }
 
 export const seoCaseStudy = PUBLISHED_ARTICLES.find((article) => article.url.endsWith("-e5230a5214ff"))
-export const seoCover = "/media/work/seo-attribution.webp"

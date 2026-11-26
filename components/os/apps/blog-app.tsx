@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react"
 import { MEDIUM_PROFILE_URL, PUBLISHED_ARTICLES, type Article } from "@/lib/os/blog"
 import { PROFILE } from "@/lib/os/content"
-import { seoCaseStudy, seoCover } from "@/components/site/work-media"
 import styles from "./portfolio-collection.module.css"
 
 const dateFormat = new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" })
@@ -71,7 +70,7 @@ export function BlogApp() {
                 {story.description && <p>{story.description}</p>}
                 <a className={styles.readArticle} href={story.url} target="_blank" rel="noreferrer">Read article on Medium <ArrowUpRight size={16} aria-hidden /></a>
               </div>
-              {story.url === seoCaseStudy?.url && <Image src={seoCover} width={960} height={540} alt="Cover illustration for the SEO attribution case study" sizes="(max-width: 600px) 90vw, 450px" className={styles.cover} />}
+              {story.cover && <Image src={story.cover.src} width={960} height={540} alt={story.cover.alt} sizes="(max-width: 600px) 90vw, 450px" className={styles.cover} />}
               {story.url.endsWith("-bd84d28832ca") && (
                 <div className={styles.complexity} aria-label="Binary search halves the remaining search space.">
                   <span>Binary search</span><strong>O(log n)</strong><small>Each comparison halves the remaining search space.</small>

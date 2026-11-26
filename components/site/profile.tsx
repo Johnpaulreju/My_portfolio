@@ -1,10 +1,10 @@
 import Image from "next/image"
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { MEDIUM_PROFILE_URL } from "@/lib/os/blog"
+import { MEDIUM_PROFILE_URL, PUBLISHED_ARTICLES } from "@/lib/os/blog"
 import { ACHIEVEMENTS, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
 import { PROFILE_AVAILABILITY, PROFILE_LEARNING, PROFILE_SUMMARY, profileLink } from "@/lib/site"
-import { projectPreviews, seoCaseStudy, seoCover } from "./work-media"
+import { projectPreviews, seoCaseStudy } from "./work-media"
 import styles from "./site.module.css"
 
 export function SiteNavigation() {
@@ -54,12 +54,14 @@ export function ProfileIntro() {
 }
 
 export function BlogCard() {
+  const latest = PUBLISHED_ARTICLES[0]
   return (
     <section id="blog-heading" tabIndex={-1} className={styles.writingCard} aria-labelledby="writing-title">
-      <Image src={seoCover} width={960} height={540} alt="" className={styles.writingCover} sizes="(max-width: 700px) 85vw, 360px" />
+      {latest?.cover && <Image src={latest.cover.src} width={960} height={540} alt={latest.cover.alt} className={styles.writingCover} sizes="(max-width: 700px) 85vw, 360px" />}
       <div>
         <h2 id="writing-title">Blog</h2>
-        <p>I write about how algorithms scale and what search data can tell us about changes to a storefront.</p>
+        {latest && <p><a className={styles.textAction} href={latest.url}>{latest.title}</a></p>}
+        {latest?.description && <p>{latest.description}</p>}
         <a className={styles.textAction} href={MEDIUM_PROFILE_URL}>Read my blog on Medium <span aria-hidden="true">↗</span></a>
       </div>
     </section>
