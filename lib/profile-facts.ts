@@ -1,6 +1,7 @@
 import { MEDIUM_PROFILE_URL, PUBLISHED_ARTICLES } from "./os/blog"
 import { ACHIEVEMENTS, PORTFOLIO_STATUS, PROFILE, PROJECTS, SKILL_GROUPS, TIMELINE } from "./os/content"
 import { profileLink, SITE_URL } from "./site"
+import { PUBLISHED_VIDEOS } from "./os/tube-videos"
 
 export type ProfileFact = {
   id: string
@@ -78,6 +79,8 @@ const articleFacts: ProfileFact[] = PUBLISHED_ARTICLES.flatMap((article) => {
   ]
 })
 
+const projectWalkthroughs: Record<string, string> = { "plan0-demo": "plan0", "portfolio-tour": "portfolio-os" }
+
 export const profileFacts: ProfileFact[] = [
   { id: "profile", text: PROFILE.introduction, links: [{ label: "About Johnpaul", url: SITE_URL + "/about" }] },
   { id: "role", text: `Johnpaul’s portfolio headline is ${PROFILE.headline}. His focus is ${PROFILE.next.toLowerCase()}.` },
@@ -87,6 +90,9 @@ export const profileFacts: ProfileFact[] = [
   { id: "availability", text: `Johnpaul’s availability: “${PROFILE.availability}” You can email him at ${PROFILE.email}.` },
   { id: "learning", text: `Johnpaul says, “${PROFILE.learning}”` },
   { id: "experience", text: TIMELINE.filter((t) => t.kind === "work").map((t) => t.facts[0]).join(" ") },
+  { id: "work-odyssey", text: "Johnpaul joined Odyssey Therapeia as a Junior AI Engineer and began full-time work in June 2024. His projects there included a clinical workspace with an AI scribe and the From The Trunk storefront." },
+  { id: "work-slimcortex", text: "Johnpaul continued with SlimCortex through an internal transition from Odyssey Therapeia. His public portfolio credits the clinical workspace and From The Trunk to Odyssey. It does not identify a separate SlimCortex project." },
+  { id: "work-jecrc", text: "During his BCA at JECRC University, Johnpaul placed in the top ten at a cyber hackathon with an AI-based cybersecurity solution. His public portfolio gives no further implementation details about that project." },
   { id: "clinical-work", text: "At Odyssey Therapeia, Johnpaul designed the appointment-to-scribe workflow, where a doctor can open a consultation and start taking notes. The team built a session portal for invited doctors. Staff can redact personal details before exporting records." },
   { id: "education", text: `${mca} ${bca}`, links: [kristuJayanti, jecrc] },
   { id: "education-mca", text: `${mca} He researched ICU mortality prediction using k-nearest neighbors and helped lead and judge a college robotics festival.`, links: [kristuJayanti] },
@@ -115,8 +121,32 @@ export const profileFacts: ProfileFact[] = [
   { id: "articles", text: `Johnpaul writes on Medium. Published articles include ${new Intl.ListFormat("en").format(PUBLISHED_ARTICLES.map((a) => `“${a.title}”`))}.`, links: [medium] },
   { id: "repo-articles", text: "Johnpaul’s publications are on Medium. His portfolio lists no public source-code repositories for those articles.", links: [medium] },
   ...projectFacts,
+  ...PUBLISHED_VIDEOS.filter((video) => projectWalkthroughs[video.id]).map((video) => ({
+    id: "demo-" + projectWalkthroughs[video.id],
+    text: video.description,
+    links: [{ label: video.title, url: SITE_URL + "/watch/" + video.id }],
+  })),
   ...articleFacts,
 ]
+
+const localFacts = new Map(profileFacts.map((fact) => [fact.id, fact]))
+
+/** A browser without the API can show the published facts. Checking whether a
+ * mapped repository is still public requires the normal server lookup. */
+export function offlineProfileFacts(ids: readonly string[]) {
+  const selected = [...new Set(ids)].flatMap((id) => {
+    const fact = localFacts.get(id)
+    if (!fact) return []
+    if (id === "repositories" || repositories.has(id)) {
+      const project = PROJECTS.find((p) => "repo-" + p.id === id)
+      const subject = project ? `the repository for ${project.title}` : "the public repository links"
+      return [{ id, text: `I can’t verify ${subject} right now. You can check Johnpaul’s GitHub profile.`, links: [github] }]
+    }
+    return [fact]
+  })
+  const links = selected.flatMap((fact) => fact.links ?? [])
+  return { text: selected.map((fact) => fact.text).join("\n\n"), links: [...new Map(links.map((link) => [link.url, link])).values()], factIds: selected.map((fact) => fact.id) }
+}
 
 type RepoStatus = "public" | "missing" | "unavailable"
 const repoCache = new Map<string, { expires: number; status: Promise<RepoStatus> }>()

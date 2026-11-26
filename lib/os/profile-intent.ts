@@ -1,4 +1,6 @@
 import { courtesyReply } from "./chat-courtesy"
+import { PUBLISHED_ARTICLES } from "./blog"
+import { PROJECTS, TIMELINE } from "./content"
 
 // A transposed pair in an introduction is common on a phone. Keep corrections
 // local to this grammar so other people's names and project titles stay intact.
@@ -64,4 +66,64 @@ export function isOutsideProfileScope(question: string) {
 
   // A possessive surname marks the subject even without a verb or capitalization.
   return /@ [a-z-]+ ~s\b/.test(subject)
+}
+
+// These requests can be answered locally without sending the visitor's text to Google.
+export function profileGuard(question: string): "private" | "unrelated" | null {
+  const q = question.normalize("NFKC").toLowerCase().replace(/[’‘]/g, "'")
+  if (/\b(?:api[ _-]?keys?|passwords?|passphrases?|access[ _-]?tokens?|private[ _-]?keys?|secret[ _-]?keys?|environment variables?|system (?:prompt|instructions?)|developer (?:message|instructions?)|gemini_api_key)\b|(?:^|\s)\.env\b/.test(q)
+      || /\b(?:aiza[\w-]{28,}|bearer\s+[\w.~-]{16,})\b/.test(q)
+      || /\b(?:salary|home address|private address|medical records of|patient names?|patient data|date of birth|who is his (?:wife|partner))\b/.test(q)
+      || /\b(?:emr|clinical|hospital)\b.{0,35}\b(?:client(?:'s)? (?:name|identity)|which client|name (?:the|that|their) client)\b/.test(q)
+      || /\b(?:who|which|name|identify|reveal)\b.{0,35}\b(?:client|clinic|hospital)\b.{0,35}\b(?:emr|scribe|clinical)\b/.test(q)) return "private"
+  if (isOutsideProfileScope(question)
+      || /^(?:(?:hi|hey|hello)[,!.]?\s+)?(?:what (?:is|are)|explain|define) (?:a |an )?(?:github (?:repos?|repositor(?:y|ies))|git repositor(?:y|ies)|github|sqlite|python|javascript|react|django|fastapi)\s*[?.!]*$/.test(q.trim())
+      || /\b(?:ignore|override|disregard)\b.{0,30}\b(?:instructions|guardrails|rules)\b/.test(q)
+      || /(?:^|[,.!?;]\s*|\b(?:and|then|also)\s+)(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:write|generate|compose|make|tell)\s+(?:me\s+)?(?:an? |some )?(?:joke|poem|song|recipe|script|essay)\b/.test(q)
+      || /\b(?:the (?:current |latest )?weather|weather forecast|latest (?:news|score)|stock price|capital (?:city )?of)\b/.test(q)) return "unrelated"
+  return null
+}
+
+function scopeWords(text: string) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+}
+
+const publicSubjects = [
+  ...PROJECTS.flatMap(project => [project.title, project.id]),
+  ...TIMELINE.flatMap(event => event.org.split(/→|,/).slice(0, event.org.includes("→") ? 2 : 1)),
+  ...PUBLISHED_ARTICLES.map(article => article.title),
+  "JP Tube", "Odyssey", "Kristu Jayanti", "JECRC", "Zion", "Spaaronn",
+].map(subject => ` ${scopeWords(subject)} `)
+
+function namesPortfolioSubject(words: string): boolean {
+  if (/\b(?:johnpaul(?:reju)?|john paul|jp|mygpt)\b/.test(words)) return true
+  const padded = ` ${words} `
+  return publicSubjects.some(subject => padded.includes(subject))
+}
+
+const publicTopics = /\b(?:projects?|repos?|repositories|repository|github|demos?|education|school(?:ing)?|college|university|campus|degree|study|studied|work|job|roles?|career|experience|skills?|stack|publications?|writings?|articles?|blog|medium|research|awards?|resume|portfolio|contact|email|linkedin|hire|hiring|availability|available|freelance|certifications?|languages?)\b/
+const bareTopics = /^(?:(?:show|give|list) (?:me |us )?|tell me about |what about )?(?:(?:the |public |selected |personal |professional |freelance |project |github |work |technical |education |coding )*(?:projects?|repos?|repositories|links?|github|education|schooling|college|work|experience|skills?|stack|writings?|articles?|blog|research|awards?|resume|contact|linkedin|availability|certifications?|languages?))(?: please)?$/
+const followUp = /\b(?:there|its?|that|those|these|which one|first one|second one|the other|tell me more|what else)\b/
+
+/** Admission for ambiguous questions that need the model; Gemini still checks
+ * the subject before selecting public facts. A prior turn alone grants no admission. */
+export function mayAskAboutProfile(
+  question: string,
+  previous: readonly string[] = [],
+  previousFacts: readonly (readonly string[])[] = [],
+): boolean {
+  if (profileGuard(question)) return false
+  const words = scopeWords(question)
+  if (namesPortfolioSubject(words) || bareTopics.test(words)) return true
+  if (/\b(?:john|he|his|him)\b/.test(words) && (publicTopics.test(words)
+      || /\b(?:build|built|create|make|develop|speak|use|learn|teach|based|live|focus|contribute|lead|specialize|specialise)\b/.test(words))) return true
+  if (/\b(?:you|your)\b/.test(words) && /\b(?:your (?:portfolio|projects|work|skills|career|education|github)|(?:did|do|have|are) you (?:study|work|build|built|available|based|learn|speak))\b/.test(words)) return true
+  if (/\b(?:sqlite|zerodha|algorithm complexity|organic clicks)\b/.test(words)
+      && /\b(?:article|post|blog|writing|wrote|published|case study)\b/.test(words)) return true
+  if (!followUp.test(words)) return false
+  // Deictic language in a new, unrelated instruction should not inherit the portfolio subject.
+  if (!publicTopics.test(words) && !/\b(?:build|built|develop|create|contribute|focus|cost|stack|link|which one|first one|second one|the other|tell me more|what else)\b/.test(words)) return false
+  const last = previous.at(-1)
+  if (!last || profileGuard(last)) return false
+  return Boolean(previousFacts.at(-1)?.length) || namesPortfolioSubject(scopeWords(last)) || bareTopics.test(scopeWords(last))
 }

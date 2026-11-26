@@ -7,8 +7,11 @@ import {
   ArrowUp, ArrowUpRight, BookOpen, BriefcaseBusiness, Check, Copy, FolderOpen, Link2,
   PanelLeft, Plus, RotateCcw, Search, Square, SquarePen, Trash2,
 } from "lucide-react"
-import { ask, type AssistantTurn } from "@/lib/os/assistant"
-import { askProfile } from "@/lib/os/ask-profile"
+import { askProfile, profileResponses } from "@/lib/os/ask-profile"
+import { offlineProfileFacts } from "@/lib/profile-facts"
+import { isPortfolioIntroduction, mayAskAboutProfile, profileGuard } from "@/lib/os/profile-intent"
+import { publicProfileHistory } from "@/lib/os/profile-history"
+import { resolveProfileConversation } from "@/lib/os/profile-conversation"
 import { PROFILE, PROJECTS } from "@/lib/os/content"
 import { useMyGPT, type ChatMessage, type ChatRequest } from "@/lib/os/mygpt-store"
 import type { WindowInstance } from "@/lib/os/types"
@@ -25,25 +28,21 @@ async function answer(request: ChatRequest | null) {
   if (!request) return
   const store = useMyGPT.getState()
   try {
-    const reply = await askProfile(request.question, request.previous, request.signal)
+    const reply = await askProfile(request.question, request.previous, request.signal, request.previousFacts)
     if (request.signal.aborted) return
     if (reply) {
       store.finish(request, reply)
       return
     }
-    // Recover the local assistant's context using only earlier turns in this chat.
-    const messages = store.sessions.find((s) => s.id === request.sessionId)?.messages ?? []
-    const history: AssistantTurn[] = []
-    for (let i = 1; i < messages.length && messages[i].id !== request.messageId; i++) {
-      const user = messages[i - 1]
-      const assistant = messages[i]
-      if (user.role === "user" && assistant.role === "assistant" && assistant.status === "done") {
-        history.push({ q: user.text, a: { text: assistant.text, confidence: 1 } })
-      }
-    }
-    const local = ask(request.question, history)
-    const facts = local.facts?.map((fact) => `${fact.label} — ${fact.value}`) ?? []
-    store.finish(request, { text: [local.text, ...facts].join("\n\n"), links: [] })
+    const { question } = request
+    const { previous, previousFacts } = publicProfileHistory(request.previous, request.previousFacts)
+    const guard = profileGuard(question)
+    if (guard) return store.finish(request, profileResponses[guard])
+    if (isPortfolioIntroduction(question, previous)) return store.finish(request, offlineProfileFacts(["profile"]))
+    const match = resolveProfileConversation(question, previous, previousFacts)
+    if (match) return store.finish(request, "ids" in match ? offlineProfileFacts(match.ids) : { text: match.clarification, links: [] })
+    const scoped = mayAskAboutProfile(question, previous, previousFacts)
+    store.finish(request, scoped ? profileResponses.unknown : profileResponses.unrelated)
   } catch {
     if (!request.signal.aborted) store.fail(request)
   }

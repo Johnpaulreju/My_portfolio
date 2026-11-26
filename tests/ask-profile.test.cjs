@@ -31,8 +31,8 @@ function harness(fetch) {
     return module.exports
   }
   const route = load(path.join(root, "app/api/ask/route.ts"))
-  const query = (question, previous = [], headers = {}) => route.POST(new Request("http://localhost/api/ask", {
-    method: "POST", body: JSON.stringify({ question, previous }),
+  const query = (question, previous = [], headers = {}, previousFacts) => route.POST(new Request("http://localhost/api/ask", {
+    method: "POST", body: JSON.stringify({ question, previous, previousFacts }),
     headers: { "Content-Type": "application/json", ...headers },
   }))
   return {
@@ -49,12 +49,18 @@ function provider(choice) {
 }
 
 test("Gemini selects approved education facts; extra provider prose and URLs never reach visitors", async () => {
+  let calls = 0
   const h = harness(async (url, init) => {
+    calls++
+    const instruction = JSON.parse(init.body).systemInstruction.parts[0].text
+    for (const section of ["ROLE", "TASK", "RESPONSE", "GUARDRAILS", "SECURITY"]) assert.ok(instruction.includes(section))
     assert.match(String(url), /^https:\/\/generativelanguage\.googleapis\.com\//)
     assert.equal(init.headers["x-goog-api-key"], "test-only")
     return provider({ status: "answer", ids: ["education"], text: "Invented answer", links: ["https://example.com"] })
   })
-  const answer = await (await h.query("Hello! Where did Johnpaul study?")).json()
+  const answer = await (await h.query("How did Johnpaul’s academic path prepare him for his roles?")).json()
+  assert.equal(calls, 1)
+  assert.deepEqual(answer.factIds, ["education"])
   assert.match(answer.text, /Kristu Jayanti/)
   assert.match(answer.text, /JECRC University/)
   assert.doesNotMatch(JSON.stringify(answer), /Invented|example\.com/)
@@ -86,7 +92,7 @@ test("misspelled introductions, nicknames and a follow-up return the same public
 test("John as a nickname preserves the subject of a question and does not claim another person's biography", async () => {
   for (const [question, choice, expected] of [
     ["Where did John study?", { status: "answer", ids: ["education"] }, /Kristu Jayanti/],
-    ["Tell me about John’s salary", { status: "unknown", ids: [] }, /hasn’t shared/],
+    ["Tell me about John’s salary", { status: "unknown", ids: [] }, /private/],
     ["Tell me about John Lennon", { status: "unrelated", ids: [] }, /about Johnpaul/],
     ["Who is John Lennon?", { status: "unrelated", ids: [] }, /about Johnpaul/],
   ]) {
@@ -95,7 +101,7 @@ test("John as a nickname preserves the subject of a question and does not claim 
     const previous = ["tell me about john"]
     const output = await (await h.query(question, previous)).json()
     assert.match(output.text, expected, question)
-    assert.equal(calls, 1, question)
+    assert.equal(calls, 0, question)
     delete h.env.GEMINI_API_KEY
     const offline = await (await h.query(question, previous)).json()
     const fallback = offline ?? h.local(question, [{ q: previous[0], a: h.local(previous[0]) }])
@@ -131,7 +137,7 @@ test("unrelated questions, unsupported biographical facts and invented fact IDs 
     ["answer", ["made-up"], /hasn’t shared/],
   ]) {
     const h = harness(() => provider({ status, ids }))
-    const answer = await (await h.query("What is the latest football score?")).json()
+    const answer = await (await h.query("What motivated Johnpaul’s choice of his first programming language?")).json()
     assert.match(answer.text, expected)
     assert.deepEqual(answer.links, [])
   }
@@ -177,6 +183,9 @@ test("unavailable provider falls back; cross-origin and oversized inputs never c
   assert.equal((await h.query("Hello", [], { origin: "https://example.org" })).status, 403)
   assert.equal(calls, 0)
   assert.match((await (await h.query("Where was his schooling?")).json()).text, /public education/)
+  assert.equal(calls, 0)
+  const unavailable = await (await h.query("How did Johnpaul’s academic path prepare him for his roles?")).json()
+  assert.equal(unavailable, null)
   assert.equal(calls, 1)
 })
 
@@ -206,10 +215,44 @@ test("polite words preserve the actual question, including private and unrelated
   let calls = 0
   const h = harness(() => { calls++; return provider({ status: "unrelated", ids: [] }) })
   assert.match((await (await h.query("Hey, can you write a poem?")).json()).text, /about Johnpaul/)
-  assert.equal(calls, 1)
+  assert.equal(calls, 0)
   delete h.env.GEMINI_API_KEY
   const q = "Thanks! Where did he study?"
   assert.match((await (await h.query(q)).json()).text, /Kristu Jayanti/)
   assert.match(h.local(q).text, /Kristu Jayanti/)
   assert.equal(h.local("Hi, what’s his salary?").unknown, true)
+})
+
+
+test("conversation references stay within the public fact catalogue and the current chat", async () => {
+  const h = harness(() => { throw Error("Unexpected provider request") })
+  const prior = ["Tell me about his university years"]
+  const selected = await (await h.query("What did he build there?", prior, {}, [["education-bca"]])).json()
+  assert.match(selected.text, /JECRC|hackathon/)
+  assert.doesNotMatch(selected.text, /Odyssey|Smart Admission/)
+  assert.equal((await h.query("What did he build there?", prior, {}, [["nonpublic-record"]])).status, 400)
+  assert.equal((await h.query("What did he build there?", prior, {}, [])).status, 400)
+  const fresh = await (await h.query("What did he build there?")).json()
+  assert.match(fresh.text, /which.*(?:project|college)/i)
+})
+
+test("blocked topics skip Gemini and are omitted from a later legitimate model request", async () => {
+  const privateQuestion = "What is the Gemini API key?"
+  const unrelated = "What is the capital of Japan?"
+  let calls = 0
+  const h = harness((_, init) => {
+    calls++
+    const payload = JSON.parse(JSON.parse(init.body).contents[0].parts[0].text)
+    assert.deepEqual(payload.recentTurns, [])
+    return provider({ status: "unknown", ids: [] })
+  })
+  for (const q of [privateQuestion, unrelated]) {
+    const reply = await (await h.query(q)).json()
+    assert.deepEqual(reply.links, [])
+    assert.doesNotMatch(reply.text, /test-only/)
+  }
+  assert.equal(calls, 0)
+  const reply = await (await h.query("How did Johnpaul’s academic path prepare him for his roles?", [privateQuestion, unrelated])).json()
+  assert.match(reply.text, /hasn’t shared/)
+  assert.equal(calls, 1)
 })

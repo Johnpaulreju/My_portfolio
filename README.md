@@ -70,11 +70,13 @@ The optional `NEXT_PUBLIC_SITE_URL` controls the public canonical origin. It mus
 
 ## Ask Johnpaul
 
-MyGPT, Nimbus’s JP assistant and the Terminal’s `ask` command answer from Johnpaul’s public portfolio. Gemini selects relevant records. The server returns the recorded facts and approved links. For repository questions it checks specific public repositories on Johnpaul’s GitHub account. Education records link to official campus pages.
+MyGPT, Nimbus’s JP assistant and the Terminal’s `ask` command answer from Johnpaul’s public portfolio. MyGPT remembers the public records used in recent replies within the same chat. If a visitor refers to one of several colleges or projects, it asks which one they mean. Common questions use the catalogue directly. Gemini can select records for other portfolio questions. The server supplies the answer text and checks published repository links against Johnpaul’s GitHub account.
 
 For local development, set the server-only `GEMINI_API_KEY` in the ignored `.env.local` and restart `pnpm dev`. Use a Gemini API project on Google’s Free Tier to keep usage free. The app uses `gemini-3.1-flash-lite`. Google may use unpaid requests to improve its products. Questions and up to three recent portfolio questions can be sent to Google. Keep personal or confidential details out of the conversation.
 
 On Vercel, set the secret in the deployment environment. The free-tier integration checks the visitor country header for eligible visitors. The local assistant remains available for other visitors and when the key or provider is unavailable. [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) · [Gemini API terms](https://ai.google.dev/gemini-api/terms)
+
+Each running server instance limits Gemini to 6 calls per minute, 30 per rolling day and 2 simultaneous calls per visitor IP. Across visitors the same instance allows 20 per minute, 200 per rolling day and 4 simultaneous calls. Failed attempts count. Public catalogue answers use no Gemini quota. Google enforces the project quota across instances. [Gemini rate limits](https://aistudio.google.com/docs/rate-limits)
 
 ## Search and launch
 

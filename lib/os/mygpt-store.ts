@@ -25,6 +25,7 @@ export type ChatRequest = {
   token: string
   question: string
   previous: string[]
+  previousFacts: string[][]
   signal: AbortSignal
 }
 
@@ -84,6 +85,7 @@ function restoreSession(raw: string, expectedId: string): ChatSession | null {
     ) : []
     messages.push({
       id: item.id, role: item.role, createdAt: item.createdAt, links,
+      factIds: Array.isArray(item.factIds) ? item.factIds.filter((id): id is string => typeof id === "string" && /^[a-z0-9-]{1,80}$/.test(id)).slice(0, 6) : undefined,
       text: status === "pending" && !item.text ? interrupted : item.text,
       status: status === "pending" ? "stopped" : status,
     })
@@ -113,9 +115,15 @@ export const useMyGPT = create<ChatState>((set, get) => {
 
   function start(session: ChatSession, question: string, messageId: string, previous: ChatMessage[]): ChatRequest {
     const controller = new AbortController()
+    const completed = previous.flatMap((message, index) => {
+      const reply = previous[index + 1]
+      return message.role === "user" && reply?.role === "assistant" && reply.status === "done"
+        ? [{ question: message.text, factIds: reply.factIds ?? [] }] : []
+    }).slice(-3)
     const request = {
       sessionId: session.id, messageId, question, token: newId(), signal: controller.signal,
-      previous: previous.filter((message) => message.role === "user").slice(-3).map((message) => message.text),
+      previous: completed.map((turn) => turn.question),
+      previousFacts: completed.map((turn) => turn.factIds),
     }
     requests.set(session.id, { request, controller })
     replace(session)
@@ -210,7 +218,7 @@ export const useMyGPT = create<ChatState>((set, get) => {
       const message = session.messages[index]
       const user = session.messages[index - 1]
       if (message?.role !== "assistant" || user?.role !== "user" || message.status === "pending") return null
-      const messages = session.messages.map((m) => m.id === messageId ? { ...m, status: "pending" as const, text: "", links: [] } : m)
+      const messages = session.messages.map((m) => m.id === messageId ? { ...m, status: "pending" as const, text: "", links: [], factIds: undefined } : m)
       return start({ ...session, messages, updatedAt: Date.now() }, user.text, messageId, session.messages.slice(0, index - 1))
     },
     finish: (request, reply) => answer(request, "done", reply),
