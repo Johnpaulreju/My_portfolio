@@ -325,6 +325,37 @@ test("a hiring conversation does not authorize generic career advice, other peop
   assert.equal(calls, 0)
 })
 
+test("Gemini hiring answers drop unsolicited catalogue entries and preserve an explicitly requested repository", async () => {
+  const slug = "Johnpaulreju/My_portfolio"
+  const repo = "https://github.com/" + slug
+  const questions = [
+    "I lead a product team looking for a full stack engineer. What in Johnpaul’s track record would make him worth shortlisting?",
+    "I am considering Johnpaul for our team. What argues for shortlisting him, and can I see the GitHub repository for Portfolio OS?",
+  ]
+  const selected = [
+    ["hiring-fit", "project-portfolio-os", "website-portfolio-os", "project-plan0", "website-plan0", "skills"],
+    ["hiring-fit", "repo-portfolio-os"],
+  ]
+  const modelQuestions = []
+  let repoLookups = 0
+  const h = harness((url, init) => {
+    if (String(url) === "https://api.github.com/repos/" + slug) {
+      repoLookups++
+      return Response.json({ private: false, full_name: slug, html_url: repo })
+    }
+    const input = JSON.parse(JSON.parse(init.body).contents[0].parts[0].text)
+    modelQuestions.push(input.question)
+    return provider({ status: "answer", ids: selected[questions.indexOf(input.question)] })
+  })
+  const pitch = await (await h.query(questions[0])).json()
+  assert.deepEqual(pitch?.factIds, ["hiring-fit"])
+  const withRepository = await (await h.query(questions[1])).json()
+  assert.deepEqual(withRepository?.factIds, ["hiring-fit", "repo-portfolio-os"])
+  assert.ok(withRepository.links.some(link => link.url === repo))
+  assert.deepEqual(modelQuestions, questions)
+  assert.equal(repoLookups, 1)
+})
+
 test("restricted project follow-ups stay at the public boundary without suppressing unrelated personal work", async () => {
   const h = harness(() => { throw Error("Unexpected provider call") })
   delete h.env.GEMINI_API_KEY

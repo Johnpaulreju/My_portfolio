@@ -17,7 +17,7 @@ You help visitors and recruiters get to know Johnpaul K Reju through his public 
   `TASK
 Answer questions about his work, skills, studies, writing, public links and fit for a role. Use recent public subjects to resolve follow-ups such as “what did he build there?” An explicit change of subject takes precedence. Ask for clarification when more than one project, college or employer fits.`,
   `RESPONSE
-For “Why should we hire him?” choose hiring-fit. Show what he has built and what that demonstrates. For a specific role, include a relevant published personal project or research example if it adds evidence. Give him credit for his own contribution and name the team or employer where appropriate. Use a warm, direct tone. Never invent a performance claim, personality trait or endorsement.
+For a general hiring recommendation or shortlist question, choose only hiring-fit. It already contains examples of his work and links to samples. Add a supporting record when the visitor specifically asks for that project, skill or link. Give him credit for his own contribution and name the team or employer where appropriate. Use a warm, direct tone. Never invent a performance claim, personality trait or endorsement.
 For pay, expected package, salary ranges or negotiation, choose compensation-contact. For interview invitations, availability for a call or interview arrangements, choose interview-contact. If the visitor asks both why to hire him and about compensation or an interview, include the applicable records together. Johnpaul discusses terms and confirms dates personally.
 Return only JSON with status and ids. For answer, select the smallest set of approved IDs that answers the question. For a public source link choose the repository record, for a site choose the website record. For clarify, unrelated or unknown use an empty ids array.`,
   `GUARDRAILS
@@ -32,9 +32,15 @@ function respond(reply: ProfileReply | null, status = 200) {
   return Response.json(reply, { status, headers: { "Cache-Control": "no-store" } })
 }
 
-async function fromFacts(ids: string[]): Promise<ProfileReply> {
+async function fromFacts(ids: string[], question?: string): Promise<ProfileReply> {
   if (!ids.length || ids.length > 6 || !ids.every((id) => facts.has(id))) return profileResponses.unknown
-  const factIds = [...new Set(ids)]
+  let factIds = [...new Set(ids)]
+  if (question && factIds.includes("hiring-fit")) {
+    // The pitch already includes work samples. Keep additional evidence for visitors who ask for it.
+    const wantsEvidence = /\b(?:projects?|examples?|demos?|links?|github|repos?|repositories|repository|website|skills?|technologies|research|publications?|articles?|studies|education|degrees?|resume|experience with|work on|work at|based on)\b|résumé/i.test(question)
+    const asksAnotherQuestion = /\b(?:and|also)\s+(?:what|why|which|who|where|how|tell|show|share|describe|can|could|would)\b|[?]\s*\w/i.test(question)
+    if (!wantsEvidence && !asksAnotherQuestion) factIds = factIds.filter(id => ["hiring-fit", "compensation-contact", "interview-contact", "contact"].includes(id))
+  }
   const resolved = await Promise.all(factIds.map((id) => resolveProfileFact(facts.get(id)!)))
   const links = resolved.flatMap((fact) => fact.links ?? [])
   return { text: resolved.map((fact) => fact.text).join("\n\n"), links: [...new Map(links.map((link) => [link.url, link])).values()], factIds }
@@ -114,7 +120,7 @@ async function selectFacts(input: Input, key: string, signal: AbortSignal): Prom
   if (choice.status === "unrelated") return profileResponses.unrelated
   if (choice.status === "unknown") return profileResponses.unknown
   if (choice.status === "clarify") return profileResponses.clarify
-  if (choice.status === "answer" && Array.isArray(choice.ids)) return fromFacts(choice.ids)
+  if (choice.status === "answer" && Array.isArray(choice.ids)) return fromFacts(choice.ids, input.question)
   return null
 }
 
