@@ -14,9 +14,11 @@
 .destinations strong, .destinations small { display: block; }
 .destinations strong { font-size: .88rem; font-weight: 600; }
 .destinations button > svg { margin-left: auto; flex: none; color: var(--os-muted); }
-.actions { flex: none; padding: .7rem var(--gutter) 1rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .4rem; flex: none; padding: .7rem var(--gutter) 1rem; }
 .actions button { display: inline-flex; gap: .6rem; align-items: center; justify-content: center; min-height: 2.75rem; padding: .5rem 1rem; color: var(--os-on-accent); background: var(--os-accent); border-radius: .5rem; font-size: .875rem; font-weight: 600; }
 .welcome .actions button:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+.actions .tour { color: var(--os-fg); background: transparent; }
+.actions .tour:hover { background: var(--os-hover); }
 @container (max-width: 39rem) { .artwork { display: none; } }
 @media (max-width: 767px), (max-height: 500px) and (pointer: coarse) {
   .desktopTip { display: none; }

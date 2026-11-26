@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.880
+In this local demonstration, Plan0 uses scripted replies. I enter an idea for a community garden watering schedule.
+
+00:00:06.880 --> 00:00:14.680
+Plan0 asks who the idea serves. I describe volunteers claiming shifts and the coordinator tracking unfilled slots.
+
+00:00:14.680 --> 00:00:22.640
+I answer its follow-up questions about the first release, the mobile journey and the records to store.
+
+00:00:22.640 --> 00:00:27.160
+The blueprint shows the decisions collected from the five prompts.
+
+00:00:27.160 --> 00:00:32.800
+I choose Generate pack. Plan0 builds a versioned ZIP and a master build prompt.
+
+00:00:32.800 --> 00:00:34.480
+I download the ZIP.
+
+00:00:34.480 --> 00:00:41.560
+Inside the ZIP, PRODUCT.md contains the original idea, target users and scope. There are 15 planning files and a manifest.

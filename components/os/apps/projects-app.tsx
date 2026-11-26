@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { ArrowUpRight, FolderOpen, Search } from "lucide-react"
+import { ArrowUpRight, CirclePlay, FolderOpen, Search } from "lucide-react"
+import { openTubeVideo } from "@/lib/os/actions"
 import { PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, type Project } from "@/lib/os/content"
 import { projectPreviews, seoCaseStudy } from "@/components/site/work-media"
 import { ComingSoon } from "./kit"
@@ -90,9 +91,10 @@ export function ProjectsApp() {
                   </div>
                   <div className={styles.contribution}>
                     <p>{project.desc}</p>
-                    {(project.url || (project.id === "from-the-trunk" && seoCaseStudy)) && (
+                    {(project.url || project.id === "plan0" || (project.id === "from-the-trunk" && seoCaseStudy)) && (
                       <div className={styles.entryLinks}>
                         {project.url && <a href={project.url} target="_blank" rel="noreferrer" aria-label={`Visit the ${project.title} website`}>Visit website <ArrowUpRight size={14} aria-hidden /></a>}
+                        {project.id === "plan0" && <button type="button" onClick={() => openTubeVideo("plan0-demo")}>Watch Plan0 demo <CirclePlay size={15} aria-hidden /></button>}
                         {project.id === "from-the-trunk" && seoCaseStudy && <a href={seoCaseStudy.url} target="_blank" rel="noreferrer">Read the SEO case study <ArrowUpRight size={14} aria-hidden /></a>}
                       </div>
                     )}

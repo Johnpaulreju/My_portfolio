@@ -78,7 +78,7 @@
   border-bottom: 2px solid var(--ink);
   padding-top: 7px;
 }
-.contexts button, .entryLinks a, .socials a {
+.contexts button, .entryLinks :is(a, button), .socials a {
   display: inline-flex;
   gap: 5px;
   align-items: center;
@@ -87,7 +87,7 @@
 }
 .contexts button { padding: 0 2px; border-bottom: 3px solid transparent; color: #585e58; font-size: 14px; }
 .contexts button[aria-pressed="true"] { border-color: #375d32; color: #20421c; }
-.contexts button:hover, .entryLinks a:hover, .socials a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.contexts button:hover, .entryLinks :is(a, button):hover, .socials a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .filters { display: flex; align-items: center; gap: 8px; margin-block: 14px 23px; }
 .search, .filters select {
   display: flex;
@@ -127,7 +127,7 @@
 .stack { color: #52584f; font-size: 12px; line-height: 1.45; }
 .contribution > p { font-size: 14px; color: #33392f; line-height: 1.62; max-width: 68ch; }
 .entryLinks { display: flex; flex-wrap: wrap; gap: 0 18px; }
-.entryLinks a { color: #284f28; font-size: 13px; }
+.entryLinks :is(a, button) { color: #284f28; font-size: 13px; }
 .reset { min-height: 44px; padding: 0 14px; border: 1px solid currentColor; }
 
 .journal { background: #f7f2e7; color: #23231e; color-scheme: light; }

@@ -213,7 +213,7 @@ const APP_HINTS: Record<AppId, { blurb: string; alias: string }> = {
   computer: { blurb: "Drives, specs and system information.", alias: "this pc my computer storage hardware properties" },
   minesweeper: { blurb: "The classic grid of hidden mines.", alias: "game puzzle mines flags board" },
   solitaire: { blurb: "Klondike, draw one or draw three.", alias: "game cards patience klondike deck" },
-  tube: { blurb: "A video space with no published videos yet.", alias: "video watch channel reel streaming" },
+  tube: { blurb: "Watch the portfolio tour and the Plan0 project walkthrough.", alias: "video watch channel reel streaming portfolio tour guide Plan0 walkthrough" },
   ridgeline: { blurb: "An original pseudo-3D combat racer.", alias: "game racing bike arcade drive race" },
   vantage: { blurb: "The second browser, the one with split view.", alias: "browser web split view tabs reading compare" },
   clock: { blurb: "Alarms, a timer, a stopwatch and world time.", alias: "alarm timer stopwatch time world wake countdown lap" },

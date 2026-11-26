@@ -67,7 +67,7 @@ export const PROJECTS: Project[] = [
   },
   {
     id: "plan0", title: "Plan0", category: "AI / ML", stack: "Markdown, AI-assisted development", year: "—", url: "https://www.plan0.in/",
-    desc: "Plan0 is my personal product, currently in development. I’m building it for people who have a software idea and want to talk it through, then take Markdown planning files into their AI coding tool. The public site introduces the idea.",
+    desc: "I’m building Plan0 for people who want to turn a software idea into a brief for their coding agent. The local demo starts with a community garden watering schedule. Five planning prompts later, the exported ZIP contains a product brief and a build prompt based on the answers.",
   },
   {
     id: "smart-admission-manager", title: "Smart Admission Manager", category: "Automation", stack: "Django, SQL, JavaScript", year: "2023",

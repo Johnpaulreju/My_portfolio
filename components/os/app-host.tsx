@@ -103,7 +103,7 @@ function renderApp(appId: AppId, win: WindowInstance) {
     case "computer": return <ComputerApp win={win} />
     case "minesweeper": return <MinesweeperApp />
     case "solitaire": return <SolitaireApp />
-    case "tube": return <TubeApp />
+    case "tube": return <TubeApp win={win} />
     case "player": return <PlayerApp win={win} />
     case "docs": return <DocsApp win={win} />
     case "ridgeline": return <RidgelineApp win={win} />

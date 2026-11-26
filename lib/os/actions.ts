@@ -21,6 +21,7 @@ import { useSystem } from "./system-store"
 import { useWM } from "./wm-store"
 import { fail, fromWrite, ok, type ActionResult } from "./result"
 import type { AppId, FSNode, FSNodeKind, Theme } from "./types"
+import type { PublishedVideoId } from "./tube-videos"
 
 const wm = () => useWM.getState()
 const fs = () => useFS.getState()
@@ -68,6 +69,12 @@ export function openMyGPT(query: string) {
 export function openSettings(section: "background" | "colors" | "taskbar" | "system") {
   const state = wm()
   state.setPayload(state.open("settings"), { section })
+}
+
+/** Project links select the requested recording in the existing player window. */
+export function openTubeVideo(clipId: PublishedVideoId) {
+  const state = wm()
+  state.setPayload(state.open("tube"), { clipId })
 }
 
 /** Same as openApp but takes a human string; used by the shell and the assistant. */

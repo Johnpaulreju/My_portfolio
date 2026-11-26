@@ -1,8 +1,9 @@
 "use client"
 
-import { ArrowRight, ChevronRight } from "lucide-react"
+import { ArrowRight, ChevronRight, Play } from "lucide-react"
 import { AppIcon } from "../app-icon"
 import { PROFILE } from "@/lib/os/content"
+import { openTubeVideo } from "@/lib/os/actions"
 import { useWM } from "@/lib/os/wm-store"
 import type { WindowInstance } from "@/lib/os/types"
 import styles from "./welcome.module.css"
@@ -45,6 +46,9 @@ export function WelcomeApp({ win }: { win: WindowInstance }) {
         </div>
         <div className={styles.actions}>
           <button type="button" onClick={() => close(win.id)}>Start exploring <ArrowRight size={16} aria-hidden /></button>
+          <button type="button" className={styles.tour} onClick={() => { close(win.id); openTubeVideo("portfolio-tour") }}>
+            <Play size={15} aria-hidden />Watch tour
+          </button>
         </div>
       </div>
     </div>

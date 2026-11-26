@@ -29,7 +29,7 @@ The desktop includes draggable windows, a taskbar, Start menu, themes, and a loc
 | Nimbus, Vantage | Original browser and search interfaces for exploring the portfolio |
 | Notepad, Docs, Files | Local notes, documents, and virtual filesystem tools |
 | Settings, Terminal, This PC, Recycle Bin | Portfolio OS controls and utilities |
-| Media Player, JP Tube | Local players with generated coding demos; JP Tube has an empty published catalogue and an explicit demo mode |
+| Media Player, JP Tube | JP Tube hosts the portfolio tour and Plan0 walkthrough. The Media Player and JP Tube also include generated coding samples. |
 | Minesweeper, Solitaire, Ridgeline | Games within the OS |
 
 Project descriptions identify the employer, partner, client or academic institution where relevant and describe Johnpaul’s contribution.
@@ -86,6 +86,6 @@ Use the [launch checklist](doc/launch-checklist.md) for integration checks, prod
 
 The files in `docs/` were refreshed on 27 September 2026 from this local content-fix build: desktop, Start, context menu, phone home and the explicit JP Tube demo. They predate the current project catalogue. Browser QA used Chrome with emulated phone dimensions. The lead must run final integrated checks.
 
-JP Tube’s two silent animations are generated code art, not personal recordings or project walkthroughs. Play/pause, English captions, queue/autoplay, local likes/dislikes, saves and comments can be tried without an account. This demo state lasts only while the Tube window stays open and is cleared by closing or reloading; nothing is posted. The separate Media Player uses the same first demo asset. Historical files under `reports/` and `research_notes/` are preserved with supersession notes; old ownership assumptions and launch suggestions there are not current claims.
+JP Tube opens with a guided visit to the portfolio. The Plan0 project entry opens its walkthrough directly in the same player. Both recordings support English captions. The player samples have their own queue. Likes, saves and comments last for the current window session. The separate Media Player uses the first coding sample. Historical files under `reports/` and `research_notes/` are preserved with supersession notes.
 
 See [how it works](doc/how-it-works.md) for the implementation notes. Microsoft, Windows, and Android names refer to interface inspiration; Nimbus and Vantage are original portfolio apps.

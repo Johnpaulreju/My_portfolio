@@ -26,6 +26,7 @@
 .content p { max-width: 70ch; margin: .6rem 0; }
 .eyebrow { color: var(--os-accent-fg); font-size: .85rem; letter-spacing: .03em; }
 .role { font-size: clamp(1.1rem, 3vw, 1.4rem); }
+.watchPlayer { display: block; width: 100%; height: auto; max-height: 78svh; margin: 1.2rem 0; background: #0c111c; border-radius: .6rem; }
 .muted { color: var(--os-muted); }
 .section { margin-top: 2.75rem; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }

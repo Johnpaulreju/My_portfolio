@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { MEDIUM_PROFILE_URL, PUBLISHED_ARTICLES } from "@/lib/os/blog"
+import { getPublishedVideo } from "@/lib/os/tube-videos"
 import { ACHIEVEMENTS, PORTFOLIO_STATUS, PROFILE, PROJECTS, SHOW_PROJECTS, SKILL_GROUPS, TIMELINE } from "@/lib/os/content"
 import { PROFILE_AVAILABILITY, PROFILE_LEARNING, PROFILE_SUMMARY, profileLink } from "@/lib/site"
 import { projectPreviews, seoCaseStudy } from "./work-media"
@@ -135,6 +136,7 @@ export function ResumeProfile() {
 
 export function SelectedWork({ limit }: { limit?: number }) {
   const projects = SHOW_PROJECTS ? PROJECTS.slice(0, limit) : []
+  const plan0Demo = getPublishedVideo("plan0-demo")
   return (
     <section id="selected-work" tabIndex={-1} className={styles.section} aria-labelledby="selected-work-title">
       <h2 id="selected-work-title">{projects.length ? "Selected projects" : "Personal work"}</h2>
@@ -149,6 +151,7 @@ export function SelectedWork({ limit }: { limit?: number }) {
                 <h3>{project.url ? <a href={project.url}>{project.title}</a> : project.title}</h3>
                 <p>{project.desc}</p>
                 {project.stack && <p className={styles.muted}>{project.stack}</p>}
+                {project.id === "plan0" && plan0Demo && <Link className={styles.textAction} href={`/watch/${plan0Demo.id}`}>Watch the Plan0 demo</Link>}
                 {project.id === "from-the-trunk" && seoCaseStudy && <a className={styles.textAction} href={seoCaseStudy.url}>Read the SEO case study <span aria-hidden="true">↗</span></a>}
               </div>
             </article>
