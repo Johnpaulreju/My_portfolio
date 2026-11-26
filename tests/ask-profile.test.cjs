@@ -109,7 +109,9 @@ test("offline topic lookups keep Johnpaul distinct from another John and decline
   delete h.env.GEMINI_API_KEY
   const previous = ["Who is John?"]
   const history = [{ q: previous[0], a: h.local(previous[0]) }]
-  for (const question of ["Where did John Lennon study?", "Tell me about John and write a poem"]) {
+  for (const question of [
+    "Where did John Lennon study?", "Which college did John Kelly go to?", "Tell me about John and write a poem",
+  ]) {
     const local = h.local(question, history)
     const api = await (await h.query(question, previous)).json()
     for (const reply of [local, api ?? local]) {

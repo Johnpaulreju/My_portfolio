@@ -58,9 +58,9 @@ export function isOutsideProfileScope(question: string) {
   // Lennon study?". JP Tube is the name of the portfolio's own video app.
   const words = introductionWords(question.replace(/[’']s\b/gi, " ~s ")).replace(/\bjp tube\b/g, "video app")
   const subject = words.replace(ownerName, "@")
-  const candidate = /\b(?:did|does|has|had|was|is|can) @ ([a-z-]+) (?:study|studied|attend|graduate|work|worked|build|create|live|based)\b/.exec(subject)
+  const candidate = /\b(?:did|does|has|had|was|is|can) @ ([a-z-]+) (?:study|studied|attend|graduate|go|earn|work|worked|build|create|write|join|live|based)\b/.exec(subject)
   // Ordinary adverbs and helper verbs can also fit between the name and predicate.
-  if (candidate && !/ly$|^(?:ever|first|last|once|still|help|also|both|most|best)$/.test(candidate[1])) return true
+  if (candidate && !/^(?:ever|first|last|once|still|help|also|both|most|best|really|actually|currently|previously|originally|usually|primarily|recently)$/.test(candidate[1])) return true
 
   // A possessive surname marks the subject even without a verb or capitalization.
   return /@ [a-z-]+ ~s\b/.test(subject)
