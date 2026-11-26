@@ -6,7 +6,7 @@ const vm = require("node:vm")
 const ts = require("typescript")
 
 // Every test uses fresh module state and a simulated clock; no provider requests.
-function harness() {
+function harness(reserve = async () => true) {
   let now = 1_000_000
   const cache = new Map()
   function load(file) {
@@ -17,7 +17,7 @@ function harness() {
     const module = { exports: {} }
     vm.runInNewContext(source, {
       module, exports: module.exports, process: { env: { VERCEL: "1" } }, Date: { now: () => now },
-      require: id => load(path.resolve(path.dirname(file), id + ".ts")),
+      require: id => id === "./gemini-quota" ? { reserveGeminiDailyQuota: reserve } : load(path.resolve(path.dirname(file), id + ".ts")),
     }, { filename: file })
     cache.set(file, module.exports)
     return module.exports
@@ -31,44 +31,40 @@ function harness() {
   }
 }
 
-test("model calls require per-visitor and shared concurrency slots; release is idempotent", () => {
+test("local concurrency slots are released once even when daily reservations are pending", async () => {
   const h = harness()
-  const releases = [h.acquire("192.0.2.1"), h.acquire("192.0.2.1")]
-  assert.equal(h.acquire("192.0.2.1"), null)
-  releases.push(h.acquire("192.0.2.2"), h.acquire("192.0.2.2"))
-  assert.equal(h.acquire("192.0.2.3"), null)
-  releases[0]()
-  releases[0]()
-  const release = h.acquire("192.0.2.3")
-  assert.equal(typeof release, "function")
-  assert.equal(h.acquire("192.0.2.3"), null)
-  release()
-  releases.forEach(finish => finish())
+  const reservations = await Promise.all(["1", "1", "2", "2", "3"].map(last => h.acquire("192.0.2." + last)))
+  assert.equal(reservations[4], null)
+  reservations[0]()
+  reservations[0]()
+  const last = await h.acquire("192.0.2.3")
+  assert.equal(typeof last, "function")
+  assert.equal(await h.acquire("192.0.2.3"), null)
+  last()
+  reservations.slice(1, 4).forEach(finish => finish())
 })
 
-test("completed attempts count against rolling per-visitor minute and day budgets", () => {
-  const h = harness()
-  for (let burst = 0; burst < 5; burst++) {
-    for (let i = 0; i < 6; i++) h.acquire("192.0.2.1")()
-    assert.equal(h.acquire("192.0.2.1"), null)
-    h.advance(60_000)
-  }
-  assert.equal(h.acquire("192.0.2.1"), null)
-  h.acquire("192.0.2.2")()
-  h.advance(86_400_000)
-  h.acquire("192.0.2.1")()
-})
-
-test("the shared rolling budgets apply across visitors", () => {
-  const h = harness()
-  for (let burst = 0; burst < 10; burst++) {
-    for (let i = 0; i < 20; i++) h.acquire("192.0.2." + (i + 1))()
-    assert.equal(h.acquire("192.0.2.70"), null)
-    h.advance(60_000)
-  }
-  assert.equal(h.acquire("192.0.2.70"), null)
-  h.advance(86_400_000)
-  h.acquire("192.0.2.70")()
+test("burst limits protect the store; denied and failed daily reservations free their local slot", async () => {
+  let attempts = 0
+  const clients = []
+  const h = harness(async client => {
+    clients.push(client)
+    if (++attempts === 1) throw new Error("store unavailable")
+    return attempts > 2
+  })
+  const visitor = "192.0.2.1"
+  assert.equal(await h.acquire(visitor), null)
+  assert.equal(await h.acquire(visitor), null)
+  for (let i = 0; i < 4; i++) (await h.acquire(visitor))()
+  assert.equal(await h.acquire(visitor), null)
+  assert.equal(clients.length, 6)
+  for (let i = 0; i < 14; i++) (await h.acquire("192.0.2." + (i + 2)))()
+  assert.equal(await h.acquire("192.0.2.20"), null)
+  assert.equal(clients.length, 20)
+  h.advance(60_000)
+  const nextMinute = await h.acquire(visitor)
+  nextMinute()
+  assert.equal(clients.at(-1), visitor)
 })
 
 test("private data and unrelated or mixed requests are kept outside the model path", () => {

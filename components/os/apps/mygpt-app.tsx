@@ -12,6 +12,7 @@ import { offlineProfileFacts } from "@/lib/profile-facts"
 import { isPortfolioIntroduction, mayAskAboutProfile, profileGuard } from "@/lib/os/profile-intent"
 import { publicProfileHistory } from "@/lib/os/profile-history"
 import { resolveProfileConversation } from "@/lib/os/profile-conversation"
+import { fallbackProfileSelection } from "@/lib/os/portfolio-fallback"
 import { PROFILE, PROJECTS } from "@/lib/os/content"
 import { useMyGPT, type ChatMessage, type ChatRequest } from "@/lib/os/mygpt-store"
 import type { WindowInstance } from "@/lib/os/types"
@@ -39,7 +40,7 @@ async function answer(request: ChatRequest | null) {
     const guard = profileGuard(question)
     if (guard) return store.finish(request, profileResponses[guard])
     if (isPortfolioIntroduction(question, previous)) return store.finish(request, offlineProfileFacts(["profile"]))
-    const match = resolveProfileConversation(question, previous, previousFacts)
+    const match = resolveProfileConversation(question, previous, previousFacts) ?? fallbackProfileSelection(question, previous, previousFacts)
     if (match) return store.finish(request, "ids" in match ? offlineProfileFacts(match.ids) : { text: match.clarification, links: [] })
     const scoped = mayAskAboutProfile(question, previous, previousFacts)
     store.finish(request, scoped ? profileResponses.unknown : profileResponses.unrelated)

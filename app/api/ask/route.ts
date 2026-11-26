@@ -4,6 +4,7 @@ import { canUseFreeGemini } from "@/lib/gemini-region"
 import { profileFacts, resolveProfileFact } from "@/lib/profile-facts"
 import { courtesyReply } from "@/lib/os/chat-courtesy"
 import { resolveProfileConversation } from "@/lib/os/profile-conversation"
+import { fallbackProfileSelection } from "@/lib/os/portfolio-fallback"
 import { isPortfolioIntroduction, mayAskAboutProfile, profileGuard } from "@/lib/os/profile-intent"
 import { profileResponses, type ProfileReply } from "@/lib/os/ask-profile"
 
@@ -115,10 +116,9 @@ export async function POST(request: Request) {
   if (isPortfolioIntroduction(question, previous)) return respond(await fromFacts(["profile"]))
   const match = resolveProfileConversation(question, previous, previousFacts)
   if (match) return respond("ids" in match ? await fromFacts(match.ids) : { text: match.clarification, links: [] })
-  if (!mayAskAboutProfile(question, previous, previousFacts)) return respond(profileResponses.unrelated)
-
-  const key = process.env.GEMINI_API_KEY
-  const release = key && canUseFreeGemini(request) ? tryAcquireGemini(request) : null
+  const inScope = mayAskAboutProfile(question, previous, previousFacts)
+  const key = inScope ? process.env.GEMINI_API_KEY : undefined
+  const release = key && canUseFreeGemini(request) ? await tryAcquireGemini(request) : null
   if (release && key) {
     try {
       const reply = await selectFacts(input, key, request.signal)
@@ -129,5 +129,8 @@ export async function POST(request: Request) {
       release()
     }
   }
-  return respond(null)
+  const fallback = fallbackProfileSelection(question, previous, previousFacts)
+  // Older clients have their own grounded answers for questions outside this catalogue grammar.
+  if (!fallback) return respond(inScope ? null : profileResponses.unrelated)
+  return respond("ids" in fallback ? await fromFacts(fallback.ids) : { text: fallback.clarification, links: [] })
 }

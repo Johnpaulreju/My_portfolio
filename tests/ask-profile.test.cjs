@@ -6,7 +6,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 const vm = require("node:vm")
 
-function harness(fetch) {
+function harness(fetch, reserve = async () => true) {
   const root = path.resolve(__dirname, "..")
   const cache = new Map()
   const env = { NODE_ENV: "test", GEMINI_API_KEY: "test-only" }
@@ -18,6 +18,7 @@ function harness(fetch) {
     }).outputText
     function localRequire(id) {
       const base = id.startsWith("@/") ? path.join(root, id.slice(2)) : path.resolve(path.dirname(file), id)
+      if (base === path.join(root, "lib/gemini-quota")) return { reserveGeminiDailyQuota: reserve }
       if (base === path.join(root, "lib/os/capabilities")) return {
         capabilityButton: (name, arg) => ({ name, arg, label: name }),
       }
@@ -185,7 +186,7 @@ test("unavailable provider falls back; cross-origin and oversized inputs never c
   assert.match((await (await h.query("Where was his schooling?")).json()).text, /public education/)
   assert.equal(calls, 0)
   const unavailable = await (await h.query("How did Johnpaul’s academic path prepare him for his roles?")).json()
-  assert.equal(unavailable, null)
+  assert.equal(unavailable, null, "an unrecognized question can use the client's portfolio fallback")
   assert.equal(calls, 1)
 })
 
@@ -255,4 +256,28 @@ test("blocked topics skip Gemini and are omitted from a later legitimate model r
   const reply = await (await h.query("How did Johnpaul’s academic path prepare him for his roles?", [privateQuestion, unrelated])).json()
   assert.match(reply.text, /hasn’t shared/)
   assert.equal(calls, 1)
+})
+
+
+test("daily rejection or store outage serves a grounded portfolio reply without calling Gemini", async () => {
+  const question = "Which languages could Johnpaul use in a conversation with a client?"
+  for (const unavailableStore of [false, true]) {
+    let modelCalls = 0
+    let reservations = 0
+    const h = harness(() => { modelCalls++; throw Error("Gemini must not be called") }, async () => {
+      reservations++
+      if (unavailableStore) throw Error("offline")
+      return false
+    })
+    const answer = await (await h.query(question)).json()
+    assert.match(answer.text, /English, Malayalam and Hindi/i)
+    assert.deepEqual(answer.factIds, ["languages"])
+    assert.equal(reservations, 1)
+    const education = await (await h.query("Where did Johnpaul study?")).json()
+    assert.match(education.text, /JECRC/)
+    const followUp = await (await h.query("Where could I browse its source files?", ["Tell me about Plan0"], {}, [["project-plan0"]])).json()
+    assert.deepEqual(followUp.factIds, ["repo-plan0"])
+    assert.equal(reservations, 1, "catalogue lookups should bypass both Redis and Gemini")
+    assert.equal(modelCalls, 0)
+  }
 })
