@@ -60,6 +60,68 @@ test("Gemini selects approved education facts; extra provider prose and URLs nev
   assert.doesNotMatch(JSON.stringify(answer), /Invented|example\.com/)
 })
 
+test("misspelled introductions, nicknames and a follow-up return the same public bio with or without Gemini", async () => {
+  for (const configured of [true, false]) {
+    let calls = 0
+    const h = harness(() => { calls++; return provider({ status: "unknown", ids: [] }) })
+    if (!configured) delete h.env.GEMINI_API_KEY
+    const previous = ["hey"]
+    const history = [{ q: "hey", a: h.local("hey") }]
+    for (const question of [
+      "etll me about john", "tell me about john", "Who is JP?", "Tell me about him",
+      "Tell me about John Paul", "Give me John’s bio",
+    ]) {
+      const reply = await (await h.query(question, previous.slice(-3))).json()
+      assert.match(reply?.text ?? "", /Johnpaul K Reju/, question)
+      assert.match(reply.text, /full[- ]stack AI engineer/i, question)
+      const local = h.local(question, history)
+      assert.equal(local.text, reply.text, question)
+      previous.push(question)
+      history.push({ q: question, a: local })
+    }
+    assert.equal(calls, 0, "a basic introduction should work independently of provider availability")
+  }
+})
+
+test("John as a nickname preserves the subject of a question and does not claim another person's biography", async () => {
+  for (const [question, choice, expected] of [
+    ["Where did John study?", { status: "answer", ids: ["education"] }, /Kristu Jayanti/],
+    ["Tell me about John’s salary", { status: "unknown", ids: [] }, /hasn’t shared/],
+    ["Tell me about John Lennon", { status: "unrelated", ids: [] }, /about Johnpaul/],
+    ["Who is John Lennon?", { status: "unrelated", ids: [] }, /about Johnpaul/],
+  ]) {
+    let calls = 0
+    const h = harness(() => { calls++; return provider(choice) })
+    const previous = ["tell me about john"]
+    const output = await (await h.query(question, previous)).json()
+    assert.match(output.text, expected, question)
+    assert.equal(calls, 1, question)
+    delete h.env.GEMINI_API_KEY
+    const offline = await (await h.query(question, previous)).json()
+    const fallback = offline ?? h.local(question, [{ q: previous[0], a: h.local(previous[0]) }])
+    if (choice.status === "answer") assert.match(fallback.text, expected)
+    else assert.doesNotMatch(fallback.text, /Johnpaul K Reju|full[- ]stack AI engineer/i, question)
+  }
+})
+
+test("offline topic lookups keep Johnpaul distinct from another John and decline mixed requests", async () => {
+  const h = harness(() => { throw Error("unexpected network call") })
+  delete h.env.GEMINI_API_KEY
+  const previous = ["Who is John?"]
+  const history = [{ q: previous[0], a: h.local(previous[0]) }]
+  for (const question of ["Where did John Lennon study?", "Tell me about John and write a poem"]) {
+    const local = h.local(question, history)
+    const api = await (await h.query(question, previous)).json()
+    for (const reply of [local, api ?? local]) {
+      assert.match(reply.text, /portfolio|about Johnpaul/i, question)
+      assert.doesNotMatch(reply.text, /Kristu Jayanti|JECRC University|I build clinical software|Johnpaul K Reju is/i, question)
+    }
+  }
+  const question = "Which college did John Paul attend?"
+  assert.match((await (await h.query(question, previous)).json()).text, /Kristu Jayanti/)
+  assert.match(h.local(question, history).text, /Kristu Jayanti/)
+})
+
 test("unrelated questions, unsupported biographical facts and invented fact IDs fail closed", async () => {
   for (const [status, ids, expected] of [
     ["unrelated", ["profile"], /about Johnpaul/],

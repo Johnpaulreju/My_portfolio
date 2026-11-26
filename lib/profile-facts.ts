@@ -79,7 +79,7 @@ const articleFacts: ProfileFact[] = PUBLISHED_ARTICLES.flatMap((article) => {
 })
 
 export const profileFacts: ProfileFact[] = [
-  { id: "profile", text: `${PROFILE.name} describes his work this way. “${PROFILE.summary}”` },
+  { id: "profile", text: PROFILE.introduction, links: [{ label: "About Johnpaul", url: SITE_URL + "/about" }] },
   { id: "role", text: `Johnpaul’s portfolio headline is ${PROFILE.headline}. His focus is ${PROFILE.next.toLowerCase()}.` },
   { id: "location", text: `Johnpaul is based in ${PROFILE.location}.` },
   { id: "languages", text: "Johnpaul works in English, Malayalam and Hindi." },

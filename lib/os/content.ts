@@ -7,6 +7,7 @@ export const PROFILE = {
   next: "Applied AI for web and mobile",
   headline: "Full Stack AI Engineer",
   tagline: "I build clinical software, storefronts and tools for developers.",
+  introduction: "Johnpaul K Reju is a full stack AI engineer based in Bengaluru. At Odyssey Therapeia, he designed a clinical workspace with an AI scribe and built most of From The Trunk, a storefront for preloved sarees. He also builds websites for freelance clients and is developing Plan0, which helps people turn software ideas into project plans.",
   summary: "I’m a full stack AI engineer in Bengaluru. At Odyssey Therapeia, I designed a clinical workspace around the doctor’s first task of the day: finding an appointment and starting the AI scribe. I also built most of From The Trunk, a storefront for preloved sarees. Outside work, I build websites for clients and I’m developing Plan0, a tool for planning software through conversation.",
   role: "Clinical software and independent client work",
   availability: "Open to freelance web, mobile and applied AI projects.",

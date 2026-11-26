@@ -11,7 +11,8 @@ export async function askProfile(
   const courtesy = courtesyReply(question)
   if (courtesy) return { text: courtesy, links: [] }
   try {
-    const timeout = AbortSignal.timeout(18000)
+    // Allow for the provider deadline plus the optional public repository lookup.
+    const timeout = AbortSignal.timeout(28000)
     const response = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

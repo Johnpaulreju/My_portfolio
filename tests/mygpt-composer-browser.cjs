@@ -74,10 +74,21 @@ async function check(browser, mobile) {
       assert.match(await page.evaluate(() => getSelection().toString()), /hey[\s\S]*good to meet you/i)
     }
 
+    // Repeat the reported conversation while the API is unavailable.
+    const replies = page.getByRole("article", { name: "MyGPT reply" })
+    for (const question of ["etll me about john", "tell me about john"]) {
+      const index = await replies.count()
+      await input.fill(question)
+      await input.press("Enter")
+      await replies.nth(index).getByText(/Johnpaul K Reju/).first().waitFor()
+      assert.match(await replies.nth(index).innerText(), /full[- ]stack AI engineer/i)
+    }
+
+    const requestsBeforeEducation = requests
     await input.fill("Thanks! Where did he study?")
     await input.press("Enter")
     await page.getByText(/Kristu Jayanti/).first().waitFor()
-    assert.equal(requests, 1)
+    assert.equal(requests, requestsBeforeEducation + 1)
     if (mobile) {
       await page.getByRole("navigation", { name: "Phone navigation" }).getByRole("button", { name: "Home", exact: true }).tap()
       await page.getByRole("button", { name: "All apps", exact: true }).tap()

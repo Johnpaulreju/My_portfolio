@@ -26,6 +26,7 @@
 
 import { ALL_APPS } from "./app-meta"
 import { courtesyReply } from "./chat-courtesy"
+import { isOutsideProfileScope, isPortfolioIntroduction } from "./profile-intent"
 import { capabilityButton, type CapabilityName } from "./capabilities"
 import {
   ACHIEVEMENTS,
@@ -820,15 +821,7 @@ function renderComingSoon(section: "projects" | "lab"): AssistantAnswer {
 
 function renderIdentity(): AssistantAnswer {
   return answer({
-    text: `${PROFILE.name} describes his work this way. “${PROFILE.summary}”`,
-    facts: [
-      { label: "Name", value: PROFILE.name },
-      { label: "Profile", value: PROFILE.title },
-      { label: "Focus", value: PROFILE.next },
-      { label: "Work", value: PROFILE.role },
-      { label: "Based in", value: PROFILE.location },
-      { label: "Availability", value: PROFILE.availability },
-    ],
+    text: PROFILE.introduction,
     actions: acts(act("open-app", "About Me"), act("open-app", "Resume")),
     suggestions: ["What does he build?", "Where has he worked?", "What's his tech stack?"],
     confidence: 0.9,
@@ -1385,21 +1378,9 @@ const INTENTS: Intent[] = [
     id: "help",
     kind: "answer",
     cues: [["help"], ["ask"]],
-    patterns: [/^(help|what can (you|i) (do|ask)|how does this work|who are you|what are you)\b/],
+    patterns: [/^(help|what can (you|i) (do|ask)|how does this work|who are you|what are you|introduce yourself|tell me about yourself)\b/],
     priority: 4,
     render: renderHelp,
-  },
-  {
-    id: "identity",
-    kind: "answer",
-    cues: [["who"], ["bio"]],
-    patterns: [
-      /^who('?s| is| are)\b/,
-      /\btell me about (him|johnpaul|jp|himself|the guy)\b/,
-      /\bwho'?s behind\b/,
-    ],
-    priority: 3,
-    render: renderIdentity,
   },
   {
     id: "name",
@@ -1787,7 +1768,16 @@ export function ask(question: string, history: AssistantTurn[] = []): AssistantA
   const courtesy = courtesyReply(question)
   if (courtesy) return greeting(courtesy)
 
-  const ctx = buildCtx(question, Array.isArray(history) ? history : [])
+  const turns = Array.isArray(history) ? history : []
+  if (isPortfolioIntroduction(question, turns.slice(-3).map((turn) => turn.q))) return renderIdentity()
+  if (isOutsideProfileScope(question)) return answer({
+    text: "I can help with questions about Johnpaul’s projects, experience and education. Which would you like to explore?",
+    suggestions: ASK_ME,
+    confidence: 1,
+    unknown: true,
+  })
+
+  const ctx = buildCtx(question, turns)
 
   for (const off of OFF_PROFILE) {
     if (off.pattern.test(ctx.q)) return renderOffProfile(off.topic)
